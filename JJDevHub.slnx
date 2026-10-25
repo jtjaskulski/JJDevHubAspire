@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="frontend/frontend.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="JJDevHub.AppHost/JJDevHub.AppHost.csproj" />
+  <Project Path="JJDevHub.Server/JJDevHub.Server.csproj" />
+</Solution>
