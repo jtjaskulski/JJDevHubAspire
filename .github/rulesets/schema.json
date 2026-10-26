@@ -1,0 +1,19 @@
+{
+  "target": "branch",
+  "enforcement": "active",
+  "allowed_merge_methods": ["squash"],
+  "required_approving_review_count": 0,
+  "dismiss_stale_reviews_on_push": false,
+  "require_code_owner_review": false,
+  "require_last_push_approval": false,
+  "required_review_thread_resolution": false,
+  "strict_required_status_checks_policy": true,
+  "do_not_enforce_on_create": false,
+  "required_status_checks": ["branch-name", "pr-title"],
+  "rule_types": ["deletion", "non_fast_forward", "pull_request", "required_status_checks"],
+  "branches": {
+    "develop": ["refs/heads/develop"],
+    "release": ["refs/heads/release"],
+    "main": ["refs/heads/main"]
+  }
+}
