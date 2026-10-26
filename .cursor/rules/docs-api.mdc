@@ -1,0 +1,22 @@
+---
+description: Jak pisać dokumenty API (DDD, event sourcing, CQRS, mikroserwisy)
+globs: docs/api/**/*.md
+alwaysApply: true
+---
+
+# Dokumenty API
+
+Specyfikacja: [docs/api/README.md](../../docs/api/README.md). Obraz całości: [docs/api/architektura.md](../../docs/api/architektura.md).
+
+- Pisz po polsku. Jeden numer (`01`–`22`) na sesję — nie łącz kroków przy generowaniu kodu. Plik ma więcej niż 200 linii.
+- W plikach `.md` nie pisz o agentach, sesjach ani generowaniu kodu. Dokument opisuje system i kroki wdrożenia, a nie to, kto je wykonuje.
+- Każdy numer ma sekcje w tej kolejności: wstęp, `## Po co`, `## Dlaczego ta technologia`, `## Klasy i ścieżki`, `## Plan` (kroki `### 1.` … i na końcu `### Co jest do czego`), `## Testy`, `## Zasady`, `## Poza zakresem`, `## Źródła`, `## Gotowe gdy`.
+- `## Dlaczego ta technologia` opisuje prozą każdy wybór w numerze (wzorzec, biblioteka, narzędzie): co to jest, jaki problem rozwiązuje, jakie były alternatywy i dlaczego przegrały, jaki koszt bierzemy. Podsekcja `### <wybór>` na każdą decyzję. `## Plan` mówi tylko, co zrobić, i nie powtarza uzasadnień.
+- Klasy nazywaj jak w słowniku README. `Result<T>` jest jeden, w `JJDevHub.Shared.Kernel`. Kernel nie zna Identity, News, Learning, Cv ani Contact.
+- Warstwy usługi: `Api`, `Application`, `Core`, `Persistence`, `Infrastructure`, `Contracts`. `Core` nie zna MediatR, EF, Kafki ani ASP.NET. `Application` zna `Core` i porty. `Api` składa hosta. `Persistence` i `Infrastructure` implementują porty.
+- Pakiet jest dozwolony, gdy jego licencja jest otwarta i darmowa także produkcyjnie (MIT, Apache 2.0, BSD, PostgreSQL). Nie bierz wersji z licencją komercyjną albo wymagającą klucza: MediatR od `13`, AutoMapper od `15`, MassTransit od `9`, Duende IdentityServer, QuestPDF. Nie przypinaj starej wersji tylko po to, żeby obejść licencję. OpenBao (MPL 2.0) jest dozwolony. HashiCorp Vault, MongoDB i RabbitMQ nie wchodzą.
+- Nowy pakiet wpisz do tabeli pakietów w README z licencją i numerem, w którym dochodzi, a wersję do `Directory.Packages.props`. Mediator, rejestr zdarzeń, magazyn zdarzeń i outbox są nasze, bo są tematem nauki, nie z braku biblioteki.
+- Każda usługa ma własną bazę zapisu i własną bazę odczytu na jednym PostgreSQL (tabela w README). Usługa nie czyta cudzej bazy. Redis jest cachem, z prefiksem nazwy usługi. Między usługami idzie zdarzenie integracyjne przez Kafkę.
+- Typ zdarzenia w bazie i na szynie to stabilna nazwa z `[EventName]` (`news.article-created.v1`), nigdy nazwa CLR.
+- Event sourcing mają News (`Article`), Learning (`Technology`, `Course`, `Lesson`), Identity (`Account`, `StudentInvite`), Cv (`Profile`, `Position`, `Project`, `Education`, `Activity`, `Skill`, `Language`) i Contact (`StudentInquiry`, `RecruiterInquiry`). Postęp studenta to zwykły stan. `CodeExample` jest encją wewnątrz `Lesson`, bez strumienia. Nazwa wyświetlana jest polem `Account`.
+- Agregat nie nazywa się jak segment namespace'u (`News` w `JJDevHub.News.*` daje CS0118).

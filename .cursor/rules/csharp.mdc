@@ -1,0 +1,37 @@
+---
+description: Czysty C# — jeden powód do zmiany, kolejność składowych, wczesny return
+globs: "**/*.cs"
+alwaysApply: true
+---
+
+# C#
+
+Typ i metoda robią jedną rzecz. Czytelnik nie schodzi w zagnieżdżenie.
+
+- Jeden publiczny typ na plik. Namespace w klamrach (`namespace X.Y { … }`), bez file-scoped (`namespace X.Y;`). Klasa `sealed`. Dane bez zachowania to `record`.
+- Od `sealed` odstępują klasa `abstract`, klasa `static` i `partial class Program`. Migracje EF (`Migrations/`, `*.Designer.cs`, `*ModelSnapshot.cs`) są poza tą regułą.
+- Drugi powód do zmiany to nowy typ. Długość jest zapachem, nie progiem.
+- Kolejność składowych: pola, konstruktory, właściwości, metody. W grupie najpierw publiczne, potem prywatne, a statyczne przed instancją.
+- Primary constructor zostaje na deklaracji typu. Dalsze konstruktory idą za polami.
+- Długość metody jest zapachem. W szczęśliwym przebiegu jest jeden poziom wcięcia i wczesne wyjście. `try`, `finally`, `using` oraz jedna gałąź w pętli zostają. Kolejny poziom, który ma własny powód, wychodzi do metody.
+- Oczekiwany brak i błąd walidacji to wynik (`Results` albo własny typ), nie wyjątek. `catch` łapie konkretny typ i nic nie połyka.
+- Metoda `async` bierze `CancellationToken` i podaje go tam, gdzie wywołanie ma ten parametr. Bez `.Result`, `.Wait()` i `async void`.
+- Nullable jest włączone. `null` sprawdzasz na granicy, raz. Operator `!` nie wchodzi do kodu.
+- Zależności wchodzą primary constructorem. Prywatne pole istnieje tylko, gdy wartość żyje dłużej niż metoda.
+- Nazwa mówi, co funkcja zwraca albo jaki skutek ma. Bez nowych skrótów (`usr`, `cfg`, `tmp`), `#region` i komentarza do następnej linii. Ustalone nazwy zostają: `Id`, `Jwt`, `Http`, `Url`.
+- `var`, gdy typ widać po prawej (`new`, rzutowanie) albo nazwa metody go niesie. Przy prymitywie, liczbie i wywołaniu bez widocznego typu typ jest jawny.
+- Test ma jeden powód do padnięcia: arrange, act, assert. Kilka asercji jednego skutku to nadal jeden powód.
+
+```csharp
+static async Task<IResult> GetNews(Guid id, AppDb database, CancellationToken cancellationToken)
+{
+    var news = await database.News.FindAsync([id], cancellationToken);
+    if (news is not { Published: true })
+    {
+        return Results.NotFound();
+    }
+
+    return Results.Ok(news);
+}
+```
+- Brak pustej linii na końcu pliku.

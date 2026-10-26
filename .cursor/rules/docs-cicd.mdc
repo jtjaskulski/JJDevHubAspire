@@ -1,0 +1,16 @@
+---
+description: Jak pisać i wdrażać dokumenty CI/CD
+globs: docs/cicd/**/*.md
+alwaysApply: true
+---
+
+# Dokumenty CI/CD
+
+- Pisz po polsku. Jeden numer (`01`–`16`) na sesję — nie łącz kroków. Plik ma więcej niż 200 linii.
+- W plikach `.md` nie pisz o agentach, sesjach ani generowaniu kodu.
+- Numery `01`–`07` są przed kodem usług: gałęzie, bramki, CodeQL, zależności, SonarQube, łańcuch dostaw, wersje komponentów. `08` i `09` są zaraz po tagu, przed Aspire. `10`–`13` są po `api/01`. `14` jest po lokalnym OpenBao. `16` jest zaraz po bramie. `15` jest po usługach, przed piramidą testów. Żaden z nich nie czeka na frontend.
+- Każdy numer ma sekcje w tej kolejności: wstęp, `## Po co`, `## Dlaczego ta technologia`, `## Klasy i ścieżki`, `## Plan`, `## Testy`, `## Zasady`, `## Poza zakresem`, `## Źródła`, `## Gotowe gdy`.
+- `## Źródła` jest listą, nie tabelą z jedną komórką. Punkt ma link, potem zdania: co w adresie jest wiążące, której decyzji w numerze dotyczy i czego ze źródła nie bierzemy.
+- `## Dlaczego ta technologia` opisuje prozą każdy wybór: podsekcja `### <wybór>`. Co to jest, jaki problem rozwiązuje, jakie były alternatywy i dlaczego przegrały, jaki koszt bierzemy. Uzasadnienie jest tutaj, nie w krokach.
+- Gałęzie długie: `develop`, `release`, `main`. Gałąź robocza tylko z `develop`. Checki `branch-name` i `pr-title` są wymagane od pierwszego PR.
+- Sekrety produkcji nie wchodzą do gita. OpenBao jest w numerze `14`. W workflow nie ma wartości sekretu.

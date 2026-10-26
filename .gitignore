@@ -1,5 +1,84 @@
-﻿################################################################################
-# Ten plik .gitignore został utworzony automatycznie przez Microsoft(R) Visual Studio.
-################################################################################
+# .NET
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+TestResults/
+.sonarqube/
+*.user
+*.suo
+*.userosscache
+*.rsuser
+*.DotSettings.user
+*.nupkg
+*.snupkg
+.vs/
+.nuget/
+.obsidian/
 
-/.vs
+
+# Node / pnpm (Angular & React Native)
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.cache
+.vitest/
+
+# Angular
+.angular/
+dist/
+tmp/
+out-tsc/
+coverage/
+*.tsbuildinfo
+
+# React Native
+.metro/
+.metro-health-check*
+*.jsbundle
+.expo/
+**/android/build/
+**/android/app/build/
+**/android/.gradle/
+**/android/local.properties
+**/android/captures/
+**/ios/build/
+**/ios/Pods/
+**/ios/DerivedData/
+**/Pods/
+*.apk
+*.aab
+*.jks
+*.keystore
+!debug.keystore
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.secret
+appsettings.Development.json
+appsettings.Local.json
+
+# Web CV — local personal data and generated copy for the build
+src/Clients/web/src/content/cv.local.json
+src/Clients/web/src/content/cv.json
+
+# IDE / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iml
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*~
+
+# Docker volumes / local data
+jenkins-data/

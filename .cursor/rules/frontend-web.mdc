@@ -1,0 +1,19 @@
+---
+description: Klient web — React 19, Tailwind v4, shadcn, Motion
+globs: src/clients/web/**/*,src/clients/shared/theme/**/*,frontend/**/*
+alwaysApply: false
+---
+
+# Web
+
+Specyfikacja: [docs/frontend/README.md](../../docs/frontend/README.md).
+
+- React 19, Vite, pnpm, TypeScript. HTML5 w JSX. Jeden plik CSS. Tailwind CSS v4, shadcn/ui, Motion (`motion/react`).
+- Kolory, skala, odstępy, radius i czasy tylko w `src/clients/shared/theme/tokens.ts`. Paleta jasna `#f3efe6`, `#1a1814`, `#9a3412`, krój Inter. Tailwind i NativeWind mapują te liczby.
+- Telefon osobno: NativeWind, Reanimated. Osobne ekrany, te same tokeny i te same klucze i18n.
+- Produkt: trasy `pl`/`en` (zły język i `*` na `/pl`; login, register i `/intranet/*` poza językiem).
+- Stopka pokazuje `web-vX.Y.Z`. Lista wersji usług pochodzi z `GET /versions`.
+- Strona woła usługi tylko przez klientów z warstwy API (typy z OpenAPI, TanStack Query) i tylko przez gateway. Ręcznie pisany typ odpowiedzi i `fetch` w komponencie strony to błąd.
+- HTML z API tylko przez jeden komponent sanitacji (Trusted Types, DOMPurify). Jedno `dangerouslySetInnerHTML` w aplikacji.
+- Intranet w trasach ownera, ładowany leniwie. Dwie skrzynki Contact: studenci i rekruterzy. Zapis zawsze z `If-Match`.
+- Zero nowych `*.scss`.

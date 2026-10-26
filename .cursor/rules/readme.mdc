@@ -1,0 +1,11 @@
+---
+description: README po polsku
+globs: README.md
+alwaysApply: false
+---
+
+# README
+
+Jeden dokument po polsku, od `# JJDevHub`. Bez angielskiego wstępu i bez drugiej kopii po `---`.
+
+Ścieżki, URL-e, nazwy plików i komendy zostają w brzmieniu technicznym. Tłumaczysz nagłówki i zdania. Na końcu jest kolejność numerów, ta sama co w [docs/README.md](../../docs/README.md).

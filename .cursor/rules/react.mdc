@@ -1,0 +1,40 @@
+---
+description: Czysty React — krótkie komponenty, kolejność w pliku, zero logiki w JSX
+globs: src/Clients/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# React
+
+Komponent czyta się od góry do dołu. Jedna odpowiedzialność, zero szumu.
+
+- Jeden komponent na plik. Nazwa pliku = nazwa komponentu. Eksport nazwany. Funkcja, nie klasa i nie `React.FC`.
+- Komponent mieści się na jednym ekranie. Drugi powód do zmiany albo drugi ekran to nowy komponent.
+- Kolejność w pliku: typ propsów, stałe, funkcje czyste, komponent.
+- Kolejność w komponencie: hooki, wartości wyliczone, handlery, `return`. W hookach: stan, refy, własne hooki, efekty.
+- JSX to sam układ. Filtr, mapowanie i złożony warunek stoją nad `return`.
+- Stan trzyma fakt z zewnątrz. Co da się policzyć z propsów albo stanu, jest stałą w renderze — nie drugim `useState` i nie `useEffect`.
+- `useEffect` dotyka tylko świata poza Reactem i zawsze zwraca sprzątanie. Zależności są kompletne. Wyłączenie lintera zależności nie wchodzi.
+- Logika użyta dwa razy wychodzi do hooka albo funkcji czystej.
+- Zero `any`, `as`, `!` i indeksu tablicy jako `key`.
+- Pusto, błąd i brak danych to wczesny `return`. W JSX jeden poziom warunku.
+- Handler w JSX ma jedną linijkę. Dłuższy jest funkcją powyżej.
+- Komentarz zostaje tylko tam, gdzie kod nie może powiedzieć dlaczego.
+- Test sprawdza to, co widzi użytkownik.
+
+```tsx
+function Notes({ notes }: NotesProps) {
+  const published = notes.filter((note) => note.published);
+  if (published.length === 0) {
+    return null;
+  }
+
+  return (
+    <ul>
+      {published.map((note) => (
+        <NoteRow key={note.id} note={note} />
+      ))}
+    </ul>
+  );
+}
+```
