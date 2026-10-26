@@ -1,0 +1,140 @@
+name: format
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release
+      - main
+
+permissions: {}
+
+jobs:
+  format:
+    name: format
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check formatting
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          repo=$(pwd)
+          ran=0
+
+          projects_output=$(.github/scripts/affected-components.sh --from-git --list-projects)
+          projects=()
+          if [[ -n $projects_output ]]; then
+            while IFS= read -r line; do
+              [[ -z $line ]] && continue
+              projects+=("$line")
+            done <<< "$projects_output"
+          fi
+
+          editor=$(find . \( -path './.git' -o -path '*/bin' -o -path '*/obj' -o -path '*/node_modules' \) -prune -o -name '.editorconfig' -print -quit)
+          if [[ ${#projects[@]} -gt 0 && -n $editor ]]; then
+            if [[ ! -f global.json ]]; then
+              echo "brak global.json przy projekcie" >&2
+              exit 1
+            fi
+            for csproj in "${projects[@]}"; do
+              dotnet format "$csproj" --verify-no-changes --severity info
+            done
+            ran=1
+          fi
+
+          install_packages() {
+            local dir=$1
+            if [[ -f ${dir}/package-lock.json ]]; then
+              npm ci --prefix "$dir"
+              return 0
+            fi
+            if [[ -f ${dir}/pnpm-lock.yaml ]]; then
+              corepack enable
+              pnpm install --frozen-lockfile --dir "$dir"
+              return 0
+            fi
+            if [[ -f ${dir}/yarn.lock ]]; then
+              corepack enable
+              yarn --cwd "$dir" install --immutable
+              return 0
+            fi
+            echo "brak lockfile obok ${dir}/package.json" >&2
+            exit 1
+          }
+
+          formatter_mode() {
+            local pkg=$1
+            if grep -Eq '"format:check"[[:space:]]*:' "$pkg"; then
+              printf '%s' script
+              return 0
+            fi
+            if grep -q '"prettier"' "$pkg"; then
+              printf '%s' prettier
+              return 0
+            fi
+            if grep -Eq '"(biome|@biome/biome)"' "$pkg"; then
+              printf '%s' biome
+              return 0
+            fi
+            if grep -q '"dprint"' "$pkg"; then
+              printf '%s' dprint
+              return 0
+            fi
+            return 1
+          }
+
+          run_formatter() {
+            local pkg=$1
+            local mode=$2
+            local dir
+            dir=$(dirname "$pkg")
+            install_packages "$dir"
+            (
+              cd "$dir" || exit 1
+              case "$mode" in
+                script)
+                  npm run format:check
+                  ;;
+                prettier)
+                  npm exec -- prettier --check .
+                  ;;
+                biome)
+                  npm exec -- biome check .
+                  ;;
+                dprint)
+                  npm exec -- dprint check
+                  ;;
+              esac
+            )
+          }
+
+          packages_output=$(.github/scripts/affected-components.sh --from-git --list-packages)
+          if [[ -n $packages_output ]]; then
+            while IFS= read -r pkg; do
+              [[ -z $pkg ]] && continue
+              mode=$(formatter_mode "$pkg" || true)
+              if [[ -z $mode ]]; then
+                continue
+              fi
+              run_formatter "$pkg" "$mode"
+              ran=1
+            done <<< "$packages_output"
+          fi
+
+          if [[ $ran -eq 0 ]]; then
+            empty=$(mktemp -d)
+            (
+              cd "$empty" || exit 1
+              "${repo}/.github/scripts/require-material.sh" --job format --pattern '*.csproj'
+            )
+          fi

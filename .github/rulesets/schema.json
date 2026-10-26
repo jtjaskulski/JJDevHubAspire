@@ -9,7 +9,7 @@
   "required_review_thread_resolution": false,
   "strict_required_status_checks_policy": true,
   "do_not_enforce_on_create": false,
-  "required_status_checks": ["branch-name", "pr-title"],
+  "required_status_checks": ["branch-name", "pr-title", "build", "unit-tests", "format"],
   "rule_types": ["deletion", "non_fast_forward", "pull_request", "required_status_checks"],
   "branches": {
     "develop": ["refs/heads/develop"],
