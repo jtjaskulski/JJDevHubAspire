@@ -4,6 +4,8 @@ Ten folder jest specyfikacją JJDevHub. Kod usług, workflow i ekrany powstają 
 
 Każdy plik jest po polsku. Numer opisuje system i kroki wdrożenia. Nie opisuje narzędzi, które ten plik napisały.
 
+Skrót gałęzi i commita jest w [zasady-gita.md](zasady-gita.md), a checki w [cicd/01-galezie.md](cicd/01-galezie.md).
+
 ## Trzy foldery
 
 | Folder | Numery | Pytanie, na które odpowiada |
