@@ -120,6 +120,8 @@ Szczegóły: [01-galezie.md](01-galezie.md).
 
 ## Trzy bramki
 
+Skrót checków numeru 02 jest w [bramki.md](../bramki.md).
+
 Bramki dotyczą komponentów dotkniętych zmianą i są wymagane od pierwszego pull
 requestu po numerach `01`–`07`.
 

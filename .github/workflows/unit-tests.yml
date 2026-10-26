@@ -1,0 +1,128 @@
+name: unit-tests
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release
+      - main
+
+permissions: {}
+
+jobs:
+  unit-tests:
+    name: unit-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Test affected projects
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          repo=$(pwd)
+          filter='Category!=Integration&Category!=Performance'
+
+          is_test_project() {
+            grep -Eq 'Include="xunit"|Include="xunit\.|Include="Microsoft\.NET\.Test\.Sdk"|<IsTestProject>[[:space:]]*true[[:space:]]*</IsTestProject>' "$1"
+          }
+
+          check_tree() {
+            local root=$1
+            local csproj
+            local found_prod=0
+            local found_test=0
+            [[ -d $root ]] || return 0
+            while IFS= read -r csproj; do
+              [[ -z $csproj ]] && continue
+              if is_test_project "$csproj"; then
+                found_test=1
+              else
+                found_prod=1
+              fi
+            done < <(find "$root" \( -path '*/bin' -o -path '*/obj' \) -prune -o -name '*.csproj' -print)
+            if [[ $found_prod -eq 1 && $found_test -eq 0 ]]; then
+              echo "brak projektu testowego w ${root}" >&2
+              exit 1
+            fi
+          }
+
+          if [[ -d src/services ]]; then
+            for dir in src/services/*; do
+              [[ -d $dir ]] || continue
+              check_tree "$dir"
+            done
+            for csproj in src/services/*.csproj; do
+              [[ -f $csproj ]] || continue
+              if ! is_test_project "$csproj"; then
+                echo "brak projektu testowego w src/services" >&2
+                exit 1
+              fi
+            done
+          fi
+          check_tree src/gateway
+          check_tree src/shared
+
+          projects_output=$(.github/scripts/affected-components.sh --from-git --list-projects)
+          projects=()
+          if [[ -n $projects_output ]]; then
+            while IFS= read -r line; do
+              [[ -z $line ]] && continue
+              if is_test_project "$line"; then
+                projects+=("$line")
+              fi
+            done <<< "$projects_output"
+          fi
+          if [[ ${#projects[@]} -eq 0 ]]; then
+            empty=$(mktemp -d)
+            (
+              cd "$empty" || exit 1
+              "${repo}/.github/scripts/require-material.sh" --job unit-tests --pattern '*.csproj'
+            )
+            exit 0
+          fi
+          if [[ ! -f global.json ]]; then
+            echo "brak global.json przy projekcie" >&2
+            exit 1
+          fi
+
+          total=0
+          for csproj in "${projects[@]}"; do
+            log=$(mktemp)
+            results=$(mktemp -d)
+            dotnet test "$csproj" --configuration Release --filter "$filter" --nologo \
+              --results-directory "$results" \
+              --logger "trx;LogFileName=tests.trx" \
+              --logger "console;verbosity=minimal" >"$log" 2>&1
+            cat "$log"
+            count=""
+            if [[ -f ${results}/tests.trx ]]; then
+              line=$(grep -m 1 '<Counters total="' "${results}/tests.trx" || true)
+              if [[ -n $line ]]; then
+                count=${line#*total=\"}
+                count=${count%%\"*}
+              fi
+            fi
+            if [[ -z $count ]]; then
+              line=$(grep -E 'Total tests:[[:space:]]*[0-9]+' "$log" | tail -n 1 || true)
+              if [[ -n $line ]]; then
+                count=${line##* }
+              fi
+            fi
+            if [[ -z $count ]]; then
+              count=0
+            fi
+            total=$((total + count))
+          done
+          if [[ $total -eq 0 ]]; then
+            echo "filtr jednostkowy nie znalazł testu" >&2
+            exit 1
+          fi

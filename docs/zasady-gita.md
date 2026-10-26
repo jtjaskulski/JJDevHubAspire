@@ -55,3 +55,5 @@ Prefiks gałęzi `feature/` i typ `feat` to dwie listy. Gałąź `docs/galezie` 
 Kod `0` zgadza się z regułą. Kod `1` odmawia. Kod `2` znaczy, że zabrakło argumentu. Job w CI nie dostaje `--skip-ancestry`.
 
 Pełna specyfikacja checków jest w [cicd/01-galezie.md](cicd/01-galezie.md).
+
+Skrót bramek scalenia jest w [bramki.md](bramki.md).
