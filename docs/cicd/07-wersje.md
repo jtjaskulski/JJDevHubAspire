@@ -18,20 +18,20 @@ stopki i nie stawia YARP. Zostawia tag gita i plik wersji. Deploy tagu jest w
 
 Scenariusz, który bez tego numeru skleja osiem rzeczy w jedną, zaczyna się od jednego tagu
 `v1.2.3` na całe repozytorium. Poprawka sluga w News i poprawka zapytania w Contact wchodzą
-tym samym squash promocji. Deploy z numeru `16` widzi jeden tag i przebudowuje Identity,
+tą samą promocją. Deploy z numeru `16` widzi jeden tag i przebudowuje Identity,
 Learning, Cv, bramę, web i telefon, choć ich drzewo nie drgnęło. Stopka weba pokazuje nowy
 numer przy tej samej treści. Ekran O aplikacji w telefonie też. `GET /versions` nie umie
 powiedzieć, który komponent naprawdę się zmienił. Osobny tag `news-v1.4.0` zostawia listę
 „do zbudowania” przy News. Reszta zostaje przy swoim numerze.
 
-Drugi scenariusz jest w tytule squasha. [01-galezie.md](01-galezie.md) wymusza zakres w
-`feat` i `fix`, dopóki commity są osobne. Promocja `develop` → `release` → `main` skleja je
-w jeden tytuł `chore: promote to release`. Ten tytuł sam nie niesie `feat(news)`. Gdyby
-numer wersji liczyć z tytułu na `main`, News nie dostałoby podbicia albo dostałoby je
-wszystko, co było w squashu, jedną etykietą. Dlatego numer jedzie w pliku, który
+Drugi scenariusz jest w tytule promocji. [01-galezie.md](01-galezie.md) wymusza zakres w
+`feat` i `fix`, dopóki commity są osobne na `develop`. Promocja `develop` → `release` →
+`main` ma jeden tytuł `chore: promote to release`. Ten tytuł sam nie niesie `feat(news)`.
+Gdyby numer wersji liczyć z tytułu na `main`, News nie dostałoby podbicia albo dostałoby
+je wszystko, co weszło tą promocją, jedną etykietą. Dlatego numer jedzie w pliku, który
 release-please zaktualizował jeszcze na `develop`, póki osobne Conventional Commits były
 widoczne. Job `release-tags` na pull request do `main` porównuje pliki wersji z tagami, a
-nie z tytułem squasha promocji.
+nie z tytułem merge commita promocji.
 
 Trzeci scenariusz jest przed katalogiem usługi. Manifest i `versions/*.json` wchodzą teraz,
 ze stanem `0.0.0`. Diff dokumentacji nie umie dotknąć `src/services/News`, bo katalogu nie
@@ -123,7 +123,7 @@ powstaje na `push` do `main`, gdy plik wersji na `main` nie ma jeszcze odpowiada
 Do tego służy druga połowa `.github/workflows/versions.yml`. Job na pull request nazywa się
 `release-tags`. Job na `push` do `main`, który tworzy tagi, może nazywać się `push-tags`.
 Ruleset wymaga tylko `release-tags`. `push-tags` nie jest checkiem pull requestu. Działa po
-squashu na `main`.
+merge commicie promocji na `main`.
 
 `bump-minor-pre-major` jest `true`. `bump-patch-for-minor-pre-major` jest `false`.
 
@@ -182,8 +182,10 @@ Dopóki katalogu nie ma, nie ma w nim commitów i nie ma tagu. Konfiguracja i ta
 wydań. Fikcyjne `1.0.0` w changelogu wyglądałoby jak wydanie, którego tag nie ma prawa
 powstać.
 
-Squash promocji potrafi skleić kilka commitów w `chore: promote to release`. Job na pull
-request do `main` nie czyta tego tytułu jako źródła podbicia. Czyta diff ścieżek, pliki JSON
+Promocja `develop` → `release` → `main` jest merge commitem o tytule
+`chore: promote to release` albo `chore: promote to main`. Podbicie powstaje wcześniej, na
+`develop`, z osobnych linijek `feat` i `fix`. Job na pull request do `main` nie czyta tytułu
+promocji ani rodziców merge commita jako źródła podbicia. Czyta diff ścieżek, pliki JSON
 i tagi. `release-tags-gate.sh` pada kodem `1`, gdy diff dotyka ścieżki komponentu, a
 `versions/<komponent>.json` się nie zmienia i nie ma już tagu równego wersji w pliku. Pada,
 gdy JSON się zmienia dla komponentu, którego ścieżki diff nie dotyka, a kernel tego nie
@@ -369,7 +371,7 @@ Tag zostaje na `push` do `main`.
 Utwórz `release-tags-gate.sh` i `versions.yml` zdarzeniami z tabeli. Job na pull request
 nazywa się `release-tags`. Job na `push` do `main`, który tworzy tagi, może nazywać się
 `push-tags`. Ruleset wymaga tylko `release-tags`. `push-tags` nie jest checkiem pull
-requestu: działa po squashu na `main`.
+requestu: działa po merge commicie promocji na `main`.
 
 `push-tags` tworzy tag wyłącznie, gdy JSON na `HEAD` ma wersję różną od `0.0.0` i tag o tej
 nazwie nie istnieje, oraz gdy ten JSON zmienił się względem poprzedniego commita na `main`

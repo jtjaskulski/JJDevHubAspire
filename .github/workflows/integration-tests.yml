@@ -1,0 +1,61 @@
+name: integration-tests
+
+on:
+  pull_request:
+    branches:
+      - release
+      - main
+
+permissions: {}
+
+jobs:
+  integration-tests:
+    name: integration-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Test affected projects
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          repo=$(pwd)
+          filter='Category=Integration'
+
+          is_test_project() {
+            grep -Eq 'Include="xunit"|Include="xunit\.|Include="Microsoft\.NET\.Test\.Sdk"|<IsTestProject>[[:space:]]*true[[:space:]]*</IsTestProject>' "$1"
+          }
+
+          projects_output=$(.github/scripts/affected-components.sh --from-git --list-projects)
+          projects=()
+          if [[ -n $projects_output ]]; then
+            while IFS= read -r line; do
+              [[ -z $line ]] && continue
+              if is_test_project "$line"; then
+                projects+=("$line")
+              fi
+            done <<< "$projects_output"
+          fi
+          if [[ ${#projects[@]} -eq 0 ]]; then
+            empty=$(mktemp -d)
+            (
+              cd "$empty" || exit 1
+              "${repo}/.github/scripts/require-material.sh" --job integration-tests --pattern '*.csproj'
+            )
+            exit 0
+          fi
+          if [[ ! -f global.json ]]; then
+            echo "brak global.json przy projekcie" >&2
+            exit 1
+          fi
+          for csproj in "${projects[@]}"; do
+            dotnet test "$csproj" --configuration Release --filter "$filter" --nologo
+          done
