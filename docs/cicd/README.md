@@ -127,8 +127,8 @@ requestu po numerach `01`–`07`.
 
 | Gałąź docelowa | Checki, które ruleset wymaga |
 | --- | --- |
-| `develop` | `build`, `unit-tests`, `format`, `gitleaks`, `dependency-vulnerabilities`, `branch-name`, `pr-title`, oraz z numeru `06`: `zizmor`, `action-pins`, `scorecard` |
-| `release` | checki z `develop` oraz `integration-tests`, `codeql`, `sonarqube`, `image-scan` |
+| `develop` | `build`, `unit-tests`, `format`, `codeql`, `gitleaks`, `dependency-vulnerabilities`, `branch-name`, `pr-title`, oraz z numeru `06`: `zizmor`, `action-pins`, `scorecard` |
+| `release` | checki z `develop` oraz `integration-tests`, `sonarqube`, `image-scan` |
 | `main` | checki z `release` oraz `performance`, `sbom`, `attestations`, `release-tags` |
 
 `develop` przyjmuje zmianę po pierwszej bramce. `release` po drugiej. `main` po
@@ -212,15 +212,15 @@ kompiluje Identity. Pusty sukces dotyczy braku materiału, nie wyłączenia chec
 
 ### [03-codeql.md](03-codeql.md)
 
-Skan kodu CodeQL na bramce `release` i ponownie przy wejściu na `main`. Dodaje
-`.github/workflows/codeql.yml` i job `codeql`. Zestaw zapytań to
+Skan kodu CodeQL na bramce `develop` i ponownie przy wejściu na `release` oraz
+`main`. Dodaje `.github/workflows/codeql.yml` i job `codeql`. Zestaw zapytań to
 `security-extended`. Próg niepowodzenia to `security-severity` co najmniej `7.0`.
 
 Gdy w drzewie nie ma plików C#, JavaScript ani TypeScript, job kończy się
 sukcesem z logiem `no material for codeql`. Gdy takie pliki są, wynik skanu
 wiąże scalenie. Werdykt jest kodem wyjścia z SARIF, nie zakładką Security.
-Alert bezpieczeństwa bez pola wagi też blokuje. Na `develop` ten check nie jest
-wymagany.
+Alert bezpieczeństwa bez pola wagi też blokuje. Check jest wymagany na trzech
+długich gałęziach.
 
 ### [04-zaleznosci-i-obrazy.md](04-zaleznosci-i-obrazy.md)
 
@@ -398,13 +398,15 @@ wygląda tak.
    `docs: …` albo `ci: …`.
 3. Cel to `develop`. Job `branch-name` i `pr-title` oceniają naprawdę.
 4. `build`, `unit-tests` i `format` kończą się sukcesem, bo nie ma jeszcze
-   `*.csproj`. Log mówi `no material`, a job nie jest skipped.
+   `*.csproj` w komponencie. `codeql` kończy się sukcesem, gdy nie ma `*.cs`,
+   `*.js`, `*.ts` ani `*.tsx`. Log mówi `no material`, a job nie jest skipped.
 5. `gitleaks`, `zizmor`, `action-pins` i `scorecard` oceniają workflow dodane w
    `01`–`07`. Sekret w diffie i `uses` z tagiem `@v4` padają już tutaj.
 6. `dependency-vulnerabilities` kończy się sukcesem, dopóki nie ma lockfile ani
    projektu. `package.json` bez lockfile pada.
-7. Wejście na `release` uruchamia `integration-tests`, `codeql`, `sonarqube` i
-   `image-scan`. Bez kodu i bez Dockerfile te joby raportują sukces.
+7. Wejście na `release` uruchamia `integration-tests`, `sonarqube` i
+   `image-scan`, i powtarza `codeql`. Bez kodu i bez Dockerfile te joby
+   raportują sukces.
 8. Wejście na `main` uruchamia `performance`, `sbom`, `attestations` i
    `release-tags`. Tag powstaje tylko dla komponentu, którego plik wersji się
    zmienił. Wersja `0.0.0` tagu nie dostaje.

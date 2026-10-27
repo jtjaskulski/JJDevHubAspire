@@ -49,6 +49,9 @@
           },
           {
             "context": "integration-tests"
+          },
+          {
+            "context": "codeql"
           }
         ]
       }

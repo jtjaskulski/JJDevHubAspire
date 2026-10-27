@@ -1,0 +1,130 @@
+name: codeql
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release
+      - main
+
+permissions: {}
+
+jobs:
+  codeql:
+    name: codeql
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      CODEQL_UPLOAD: ${{ vars.CODEQL_UPLOAD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Detect languages
+        id: languages
+        run: |
+          set -euo pipefail
+          output=$(.github/scripts/codeql-languages.sh)
+          printf '%s\n' "$output"
+          if [[ $output == 'no material for codeql' ]]; then
+            {
+              echo "skip=true"
+              echo "csharp=false"
+              echo "languages="
+              echo "build_mode=skip"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          languages=$(printf '%s\n' "$output" | paste -sd, -)
+          echo "languages=${languages}" >> "$GITHUB_OUTPUT"
+          if printf '%s\n' "$output" | grep -qx csharp; then
+            echo "csharp=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "csharp=false" >> "$GITHUB_OUTPUT"
+          fi
+          count=$(printf '%s\n' "$output" | grep -c .)
+          if [[ $count -eq 1 && $output == csharp ]]; then
+            echo "build_mode=manual" >> "$GITHUB_OUTPUT"
+          elif [[ $count -eq 1 ]]; then
+            echo "build_mode=none" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_mode=both" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Initialize CodeQL
+        if: steps.languages.outputs.build_mode == 'manual' || steps.languages.outputs.build_mode == 'none'
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: ${{ steps.languages.outputs.languages }}
+          queries: security-extended
+          config-file: .github/codeql/codeql-config.yml
+          build-mode: ${{ steps.languages.outputs.build_mode }}
+
+      - name: Initialize CodeQL for both languages
+        if: steps.languages.outputs.build_mode == 'both'
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: ${{ steps.languages.outputs.languages }}
+          queries: security-extended
+          config-file: .github/codeql/codeql-config.yml
+
+      - name: Build C#
+        if: steps.languages.outputs.csharp == 'true'
+        run: |
+          set -euo pipefail
+          if [[ ! -f global.json ]]; then
+            echo "brak global.json przy projekcie" >&2
+            exit 1
+          fi
+          dotnet build --configuration Release
+
+      - name: Analyze
+        id: analyze
+        if: steps.languages.outputs.skip != 'true'
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          upload: never
+          upload-database: false
+          output: codeql-results
+
+      - name: Upload SARIF artifact
+        if: steps.languages.outputs.skip != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: codeql-sarif
+          path: codeql-results
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Gate
+        if: steps.languages.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          status=0
+          found=0
+          while IFS= read -r sarif; do
+            [[ -z $sarif ]] && continue
+            found=1
+            if ! .github/scripts/codeql-gate.sh --sarif "$sarif"; then
+              status=1
+            fi
+          done < <(find codeql-results -name '*.sarif' -print)
+          if [[ $found -eq 0 ]]; then
+            echo "brak pliku SARIF" >&2
+            exit 1
+          fi
+          exit "$status"
+
+      - name: Upload SARIF
+        if: steps.languages.outputs.skip != 'true' && steps.analyze.outcome == 'success' && env.CODEQL_UPLOAD != 'false' && (success() || failure())
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          sarif_file: codeql-results

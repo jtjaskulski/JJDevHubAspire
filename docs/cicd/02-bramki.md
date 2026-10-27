@@ -419,8 +419,8 @@ Po numerze `07` listy mają wyglądać tak:
 
 | Plik | Checki |
 | --- | --- |
-| `develop.json` | `branch-name`, `pr-title`, `build`, `unit-tests`, `format`, `gitleaks`, `dependency-vulnerabilities`, `zizmor`, `action-pins`, `scorecard` |
-| `release.json` | checki z `develop` oraz `integration-tests`, `codeql`, `sonarqube`, `image-scan` |
+| `develop.json` | `branch-name`, `pr-title`, `build`, `unit-tests`, `format`, `codeql`, `gitleaks`, `dependency-vulnerabilities`, `zizmor`, `action-pins`, `scorecard` |
+| `release.json` | checki z `develop` oraz `integration-tests`, `sonarqube`, `image-scan` |
 | `main.json` | checki z `release` oraz `performance`, `sbom`, `attestations`, `release-tags` |
 
 ### 4. Zostawić pusty sukces jawnym logiem
