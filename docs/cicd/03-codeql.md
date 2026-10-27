@@ -206,13 +206,17 @@ wyklucza się `src/**`. Nie wyklucza się testów. Zapytanie o test potrafi poka
 wyłącza walidację. Jeśli któreś zapytanie hałasuje tylko w projekcie testowym, wykluczenie
 dopisuje się ścieżką projektu testowego i zdaniem powodu, nie całym `src`.
 
-Build C#, gdy język wszedł na listę, to `dotnet build --configuration Release`. Ta sama
-konfiguracja co job `build`. `autobuild` zostaje wyłączony dla C#, żeby nie było drugiej,
-innej kompilacji. Dwie kompilacje potrafią dać dwa różne zestawy ostrzeżeń i dwa różne
-werdykty przy jednym checku `codeql`. SDK bierze się z `global.json`, tak jak w numerze
-`02`. Gdy projekt C# jest, a `global.json` nie ma, kompilacja pada z tego samego powodu co
-`build`. Dla `javascript-typescript` zostaje wbudowane wykrycie CodeQL, bez osobnego bundla.
-Skan ma widzieć źródło, nie paczkę z `dist/`.
+Build C#, gdy język wszedł na listę, idzie po każdym śledzonym `*.csproj`:
+`dotnet build <projekt> --configuration Release`. Goły `dotnet build` w korzeniu odpada, bo
+w korzeniu nie ma solution, a projekty leżą w podkatalogach. `autobuild` zostaje wyłączony
+dla C#, żeby nie było drugiej, innej kompilacji. Dwie kompilacje potrafią dać dwa różne
+zestawy ostrzeżeń i dwa różne werdykty przy jednym checku `codeql`. SDK bierze się z
+`global.json`. Wersja to `11.0.100-rc.3.26522.148`, z `allowPrerelease` i
+`rollForward: latestFeature`, bo projekty celują w `net11.0`, a obraz runnera tego SDK nie
+niesie. Job instaluje je krokiem `setup-dotnet` z `global-json-file: global.json`, zanim
+zacznie budować. Gdy projekt C# jest, a `global.json` nie ma, kompilacja pada z tego samego
+powodu co `build`. Dla `javascript-typescript` zostaje wbudowane wykrycie CodeQL, bez
+osobnego bundla. Skan ma widzieć źródło, nie paczkę z `dist/`.
 
 Checkout bierze `fetch-depth: 2`. Tyle wystarcza do diffu pull requestu. Pełna historia nie
 jest potrzebna. Job nazwy z numeru `01` bierze `fetch-depth: 0`, bo liczy przodków. Ten job
@@ -290,8 +294,9 @@ Utwórz `codeql.yml` z jobem o nazwie `codeql`. Kroki:
    nie wykonują, a job kończy się sukcesem.
 3. `init` z językami z kroku 2, z `queries: security-extended` i z `config-file` wskazującym
    `.github/codeql/codeql-config.yml`.
-4. Dla C#: `dotnet build --configuration Release`. SDK z `global.json`. `autobuild` dla C#
-   wyłącz.
+4. Dla C#: zainstaluj SDK z `global.json` krokiem `setup-dotnet`, potem
+   `dotnet build <projekt> --configuration Release` na każdym śledzonym `*.csproj`.
+   `autobuild` dla C# wyłącz. Brak `global.json` przy wykrytym C# kończy krok kodem `1`.
 5. `analyze` z wyjściem SARIF do ustalonej ścieżki.
 6. `codeql-gate.sh`.
 7. Upload SARIF, gdy zmienna przebiegu `CODEQL_UPLOAD` nie jest ustawiona na `false`.
@@ -466,8 +471,9 @@ treści zapytań poszczególnych CVE.
 - [CodeQL action](https://github.com/github/codeql-action). Wiążące są wejścia `init` i
   `analyze`: języki, `queries`, plik konfiguracji i wyjście SARIF. Dotyczy kroków workflowu
   przypiętych do pełnego SHA. Ze źródła nie bierzemy `autobuild` dla C#. Kompilacja C# to
-  `dotnet build --configuration Release`, ta sama co job `build`, a dla
-  `javascript-typescript` zostaje wykrycie źródła, bez bundla z `dist/`.
+  `dotnet build` każdego śledzonego `*.csproj` w konfiguracji `Release`, po instalacji SDK
+  z `global.json`. Dla `javascript-typescript` zostaje wykrycie źródła, bez bundla z
+  `dist/`.
 - [Customizing code scanning](https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/customizing-your-advanced-setup-for-code-scanning).
   Wiążące są identyfikatory języków i `paths-ignore` w pliku konfiguracji. Dotyczy
   wykrywania `csharp` oraz `javascript-typescript` oraz wykluczeń `docs/**`, `versions/**`,

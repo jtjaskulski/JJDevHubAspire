@@ -2,6 +2,11 @@ name: pr-title
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
     branches:
       - develop
       - release
@@ -15,11 +20,21 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Check pull request title
         env:
-          TITLE: ${{ github.event.pull_request.title }}
-        run: .github/scripts/check-pr-title.sh --title "$TITLE"
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          title=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq .title)
+          if [[ -z $title || $title == null ]]; then
+            echo "brak tytułu w pull requeście" >&2
+            exit 1
+          fi
+          .github/scripts/check-pr-title.sh --title "$title"

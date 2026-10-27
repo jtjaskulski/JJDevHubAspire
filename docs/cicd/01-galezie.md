@@ -404,19 +404,29 @@ ma czego przepisywać.
 | `.github/scripts/sync-rulesets.sh` | wysłanie JSON do API, tylko lokalnie |
 | `.github/rulesets/schema.json` | wycinek pól wspólnych trzech gałęzi |
 
-Workflow nasłuchuje `pull_request` na `develop`, `release` i `main`. Nie używa `paths`. Nie
-używa `pull_request_target`. `permissions` na poziomie pliku to puste, a job dostaje
-`contents: read`. `runs-on` to `ubuntu-latest`. Checkout gałęzi dla `branch-name` bierze
+Workflow nasłuchuje `pull_request` na `develop`, `release` i `main`. Typy to `opened`,
+`synchronize`, `reopened` i `edited`. Nie używa `paths`. Nie używa `pull_request_target`.
+`permissions` na poziomie pliku to puste. Job dostaje `contents: read` i
+`pull-requests: read`. `runs-on` to `ubuntu-latest`. Checkout gałęzi dla `branch-name` bierze
 `fetch-depth: 0`, bo skrypt porównuje przodków z `develop` i `main`. Pull request, który
 dotyka tylko `docs/`, i tak uruchamia oba joby. Filtr ścieżek zostawiłby wymagany check w
 stanie oczekiwania i zablokował scalenie dokumentu o bramkach.
 
-Job `pr-title` czyta `github.event.pull_request.title`. Nie potrzebuje pełnej historii.
-Zmiana tytułu w interfejsie uruchamia go ponownie na tym samym diffie kodu. Dzięki temu
-poprawka `feat(news): publish article revision` po odrzuceniu
+Job `branch-name` i job `pr-title` czytają aktualny pull request przez
+`gh api repos/{owner}/{repo}/pulls/{number}`. Biorą `head.ref`, `base.ref` i `title`.
+Re-run powtarza payload pierwszego zdarzenia, więc `github.head_ref` i
+`github.event.pull_request.title` zostają przy starej nazwie i starym tytule. Odczyt z API
+widzi zmianę nazwy gałęzi i zmianę tytułu bez nowego commita. Po odczycie `branch-name`
+robi `git fetch` głowy pod `refs/remotes/origin/<nazwa>` oraz `develop` i `main`, żeby
+przodkowie liczyli się od aktualnej nazwy. Token przebiegu to `github.token`. W YAML nie ma
+wartości sekretu.
+
+Zmiana tytułu w interfejsie jest typem `edited` i uruchamia `pr-title` ponownie na tym samym
+diffie kodu. Dzięki temu poprawka `feat(news): publish article revision` po odrzuceniu
 `feat: publish article revision` nie wymaga nowego commita w plikach, ale wymaga nowego
-werdyktu checka. Ruleset czyta ten werdykt, nie treść opisu pull requestu pod tytułem. Opis
-pod tytułem nie jest drugą linią Conventional Commits i numer `07` go nie czyta.
+werdyktu checka. Zmiana samej nazwy głowy nowego zdarzenia nie wysyła. Re-run tego checka
+i tak czyta aktualną nazwę z API. Ruleset czyta werdykt, nie treść opisu pull requestu pod
+tytułem. Opis pod tytułem nie jest drugą linią Conventional Commits i numer `07` go nie czyta.
 
 `sync-rulesets.sh` czyta trzy pliki JSON, szuka rulesetu o tej samej nazwie i woła `POST`
 albo `PUT` na `/repos/{owner}/{repo}/rulesets`. Nazwa szukana w API jest nazwą pliku bez
@@ -457,7 +467,8 @@ Krok `run` woła skrypt i przekazuje argumenty. Logika nazwy i tytułu zostaje w
 ### 1. Dodać skrypt nazwy
 
 Utwórz `.github/scripts/check-branch-name.sh`. Skrypt przyjmuje `--head` i `--base`. W jobie
-wartości pochodzą z `github.head_ref` i `github.base_ref`. Lokalnie da się je podać ręcznie.
+wartości pochodzą z aktualnego pull requestu (`head.ref` i `base.ref`), nie z payloadu
+re-runu. Lokalnie da się je podać ręcznie.
 Wyrażenie prefiksu jest w skrypcie, takie samo jak w sekcji o kebab-case.
 
 Kolejność decyzji:
@@ -496,14 +507,16 @@ Utwórz `branch-name.yml` i `pr-title.yml`. Nazwa joba, czyli `name` oraz identy
 jeśli jest ustawiony osobno, to dokładnie `branch-name` i `pr-title`. Ruleset porównuje ten
 tekst.
 
-W kroku `run` jest wywołanie skryptu i nic poza przekazaniem argumentów. Logika zostaje w
-skrypcie. Przypnij każdą akcję `uses` do pełnego SHA i dopisz komentarz z tagiem wersji.
-Checkout w `branch-name.yml` ustawia `fetch-depth: 0`. `pr-title.yml` czyta tytuł ze
-zdarzenia i pełnej historii nie bierze.
+W kroku `run` job czyta aktualny pull request i woła skrypt. Logika nazwy i tytułu zostaje
+w skrypcie. Przypnij każdą akcję `uses` do pełnego SHA i dopisz komentarz z tagiem wersji.
+Checkout w `branch-name.yml` ustawia `fetch-depth: 0`. Po odczycie głowy job ściąga tę nazwę
+oraz `develop` i `main`. `pr-title.yml` czyta tytuł z tego samego API i pełnej historii nie
+bierze.
 
-Wyzwalacz obu plików to `pull_request` z gałęziami `develop`, `release` i `main`. `runs-on`
-to `ubuntu-latest`. `permissions` na pliku zostaw puste. Job dostaje `contents: read`. Nie
-dodawaj `paths`. Nie dodawaj `pull_request_target`.
+Wyzwalacz obu plików to `pull_request` z typami `opened`, `synchronize`, `reopened`,
+`edited` i z gałęziami `develop`, `release` i `main`. `runs-on` to `ubuntu-latest`.
+`permissions` na pliku zostaw puste. Job dostaje `contents: read` i `pull-requests: read`.
+Nie dodawaj `paths`. Nie dodawaj `pull_request_target`.
 
 ### 4. Dodać trzy JSON-y rulesetów
 
@@ -786,23 +799,25 @@ powód padnięcia, osobny od podkreślenia w nazwie.
   jako pola, które parsuje ten skrypt. Stopkę i numer wersji czyta numer `07`, a ten skrypt
   widzi jedną linię tytułu.
 - [Workflow syntax, pull_request](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request).
-  Wiążące są typy aktywności pull requestu oraz pola głowy i celu, z których job bierze
-  `github.head_ref` i `github.base_ref`. Dotyczy wyzwalacza obu workflowów na `develop`,
-  `release` i `main`. Ze źródła nie bierzemy filtra `paths` ani zdarzenia
-  `pull_request_target`. Dokument w `docs/` ma dostać oba checki.
+  Wiążące są typy aktywności pull requestu, w tym `edited`. Dotyczy wyzwalacza obu
+  workflowów na `develop`, `release` i `main`. Ze źródła nie bierzemy `github.head_ref` ani
+  `github.event.pull_request.title` jako werdyktu re-runu. Re-run trzyma payload pierwszego
+  zdarzenia. Job czyta aktualny pull request z API. Ze źródła nie bierzemy filtra `paths`
+  ani zdarzenia `pull_request_target`. Dokument w `docs/` ma dostać oba checki.
 - [pull_request_target](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request_target).
   Wiążący jest opis zdarzenia, które wykonuje workflow w kontekście gałęzi docelowej i
   dostaje uprawnienia tej gałęzi. Dotyczy zakazu `pull_request_target` w `branch-name.yml` i
   w `pr-title.yml`. Ze źródła nie bierzemy tego zdarzenia jako sposobu na czytanie tytułu.
-  Wystarcza `pull_request` z `contents: read`.
+  Wystarcza `pull_request` z `contents: read` i `pull-requests: read`.
 - [Workflow syntax for GitHub Actions](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions).
   Wiążące są `on`, `jobs`, `runs-on` i nazwa joba. Dotyczy `ubuntu-latest`, nazwy checka
   równej `branch-name` albo `pr-title` oraz kroku `run`, który tylko woła skrypt. Ze źródła
   nie bierzemy `workflow_dispatch` jako wyzwalacza tych dwóch checków. Ruleset czyta status
   ze zdarzenia pull requestu.
 - [Workflow permissions](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions).
-  Wiążące jest zawężenie tokenu przebiegu: puste uprawnienia na pliku i `contents: read` na
-  jobie. Dotyczy obu workflowów tego numeru. Ze źródła nie bierzemy `contents: write` ani
+  Wiążące jest zawężenie tokenu przebiegu: puste uprawnienia na pliku, `contents: read` i
+  `pull-requests: read` na jobie. Dotyczy obu workflowów tego numeru. `pull-requests: read`
+  służy odczytowi aktualnego pull requestu. Ze źródła nie bierzemy `contents: write` ani
   uprawnienia do rulesetów na jobie. Sync zostaje poza CI.
 - [Require status checks before merging](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches#require-status-checks-before-merging).
   Wiążące jest to, że wymagany check musi zaraportować sukces na aktualnej głowie. Dotyczy
@@ -843,12 +858,14 @@ powód padnięcia, osobny od podkreślenia w nazwie.
 - [Checkout action](https://github.com/actions/checkout). Wiążące jest `fetch-depth: 0`,
   które pobiera historię potrzebną do `merge-base`. Dotyczy checkoutu w jobie `branch-name`.
   Ze źródła nie bierzemy domyślnej płytkiej głębokości dla tego joba. Job `pr-title` pełnej
-  historii nie potrzebuje, bo czyta tytuł ze zdarzenia.
+  historii nie potrzebuje, bo tytuł bierze z API pull requestu.
 - [GitHub context](https://docs.github.com/en/actions/learn-github-actions/contexts#github-context).
-  Wiążące są pola zdarzenia dostępne w przebiegu, w tym tytuł pull requestu. Dotyczy kroku
-  `pr-title`, który przekazuje `github.event.pull_request.title` do skryptu, oraz pary
-  `head_ref` i `base_ref` w jobie nazwy. Ze źródła nie bierzemy opisu pull requestu pod
-  tytułem jako drugiej linii do parsowania. Skrypt widzi jedną linię.
+  Wiążący jest numer pull requestu w przebiegu. Dotyczy wywołania
+  `gh api repos/{owner}/{repo}/pulls/{number}`, z którego `branch-name` bierze `head.ref` i
+  `base.ref`, a `pr-title` bierze `title`. Ze źródła nie bierzemy
+  `github.event.pull_request.title` ani `github.head_ref` jako werdyktu re-runu. Re-run
+  trzyma stary payload. Ze źródła nie bierzemy opisu pull requestu pod tytułem jako drugiej
+  linii do parsowania. Skrypt widzi jedną linię.
 - [actionlint](https://github.com/rhysd/actionlint). Wiążące jest lokalne sprawdzenie
   składni workflow i odwołań w `run`. Dotyczy polecenia na `branch-name.yml` i
   `pr-title.yml`, z oczekiwanym kodem `0`. Ze źródła nie bierzemy werdyktu `actionlint` jako

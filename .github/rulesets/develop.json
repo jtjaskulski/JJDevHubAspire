@@ -45,6 +45,12 @@
             "context": "unit-tests"
           },
           {
+            "context": "integration-tests"
+          },
+          {
+            "context": "performance"
+          },
+          {
             "context": "format"
           },
           {

@@ -8,9 +8,9 @@ Ten plik jest skrótem numeru 02. Pełna specyfikacja jest w [cicd/02-bramki.md]
 
 | Gałąź | Wymagane w tym numerze |
 | --- | --- |
-| `develop` | `branch-name`, `pr-title`, `build`, `unit-tests`, `format` |
-| `release` | checki z `develop` oraz `integration-tests` |
-| `main` | checki z `release` oraz `performance` |
+| `develop` | `branch-name`, `pr-title`, `build`, `unit-tests`, `integration-tests`, `performance`, `format` |
+| `release` | checki z `develop` |
+| `main` | checki z `release` |
 
 `codeql`, `sonarqube`, `image-scan`, `gitleaks`, `dependency-vulnerabilities`, `sbom`, `attestations`, `release-tags`, `zizmor`, `action-pins` i `scorecard` wchodzą w numerach `03`–`07`, każdy ze swoim workflowem.
 
@@ -34,7 +34,7 @@ Zero testów w filtrze jednostkowym, przy istniejącym projekcie testowym, jest 
 | `integration-tests` | `Category=Integration` |
 | `performance` | `Category=Performance` |
 
-`integration-tests` startuje na `release` i `main`. `performance` startuje na `main`. Na `develop` te joby nie startują i ruleset ich nie wymaga.
+`unit-tests`, `integration-tests` i `performance` startują na `develop`, `release` i `main`. Ruleset wymaga ich na trzech gałęziach. Brak testu danej cechy kończy job sukcesem. Test, który jest i pada, jest porażką.
 
 ## Komponenty
 

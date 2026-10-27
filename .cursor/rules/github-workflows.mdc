@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Workflow
 
-- Wymagane checki od pierwszego PR: `branch-name`, `pr-title`, build, testy jednostkowe, format, CodeQL, gitleaks, podatności zależności. Na `release` dochodzą testy integracyjne i SonarQube. Na `main` dochodzą testy wydajności, SBOM i atestacje. Skan obrazu obowiązuje, gdy komponent ma Dockerfile.
+- Wymagane checki od pierwszego PR: `branch-name`, `pr-title`, build, testy jednostkowe, testy integracyjne, testy wydajnościowe, format, CodeQL, gitleaks, podatności zależności. Na `release` dochodzi SonarQube. Na `main` dochodzą SBOM i atestacje. Skan obrazu obowiązuje, gdy komponent ma Dockerfile.
 - Joby `pull_request` tylko na `ubuntu-latest`. Żaden job z `self-hosted` nie startuje na PR.
 - Tytuł PR sprawdza `pr-title` (Conventional Commits, zakres komponentu przy `feat` i `fix`). Nazwę gałęzi sprawdza `branch-name`.
 - Scalenie na `develop` jest squashem. Promocja na `release` i `main` jest merge commitem. Gałęzie `develop`, `release` i `main` mają rulesety w `.github/rulesets/`.

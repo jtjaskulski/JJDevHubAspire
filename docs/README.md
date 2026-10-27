@@ -103,11 +103,11 @@ Piramida jest jedna dla całego repozytorium, a numery dokładają do niej pięt
 
 | Piętro | Gdzie stoi | Kiedy leci w CI |
 | --- | --- | --- |
-| jednostkowy | `Core` i `Application`, bez bazy | bramka `develop` |
-| integracyjny | Testcontainers: PostgreSQL, Kafka, Redis | bramka `release` |
-| wydajnościowy | NBomber, cecha `Category=Performance` | bramka `main` |
+| jednostkowy | `Core` i `Application`, bez bazy | `develop`, `release`, `main` |
+| integracyjny | Testcontainers: PostgreSQL, Kafka, Redis | `develop`, `release`, `main` |
+| wydajnościowy | NBomber, cecha `Category=Performance` | `develop`, `release`, `main` |
 
-Test wydajnościowy nie blokuje pull requestu do `develop`. Istnieje w repozytorium od numeru, który opisuje dany endpoint, i jest wymagany przy wejściu na `main`. Filtr lokalny bez kontenerów i bez NBombera to `--filter "Category!=Integration&Category!=Performance"`.
+Trzy piętra blokują pull request do `develop` i powtarzają się przy promocji. Filtr lokalny bez kontenerów i bez NBombera to `--filter "Category!=Integration&Category!=Performance"`. To jest filtr joba `unit-tests`, nie jedyny przebieg na `develop`.
 
 Runner to xUnit i `[Fact]`. Kontener Postgresa w teście to obraz `postgres:16-alpine`, dopóki numer nie powie inaczej. Kafka w teście idzie przez `Testcontainers.Kafka` w trybie KRaft.
 

@@ -3,6 +3,8 @@ name: performance
 on:
   pull_request:
     branches:
+      - develop
+      - release
       - main
 
 permissions: {}

@@ -75,6 +75,12 @@ jobs:
           queries: security-extended
           config-file: .github/codeql/codeql-config.yml
 
+      - name: Setup .NET
+        if: steps.languages.outputs.csharp == 'true'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
       - name: Build C#
         if: steps.languages.outputs.csharp == 'true'
         run: |
@@ -83,7 +89,18 @@ jobs:
             echo "brak global.json przy projekcie" >&2
             exit 1
           fi
-          dotnet build --configuration Release
+          projects=()
+          while IFS= read -r csproj; do
+            [[ -z $csproj ]] && continue
+            projects+=("$csproj")
+          done < <(git ls-files '*.csproj')
+          if [[ ${#projects[@]} -eq 0 ]]; then
+            echo "brak projektu C#" >&2
+            exit 1
+          fi
+          for csproj in "${projects[@]}"; do
+            dotnet build "$csproj" --configuration Release
+          done
 
       - name: Analyze
         id: analyze

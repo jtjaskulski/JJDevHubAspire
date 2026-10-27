@@ -6,18 +6,18 @@ Dalsza praca leży w [motywie](../frontend/01-motyw.md). Piramida zamyka się tu
 testów usług. Ten numer nie dodaje endpointu, agregatu ani bazy. Ustala, który test gdzie stoi,
 jaką ma cechę i która bramka go uruchamia.
 
-Bez tego numeru numery 01–21 dokładają przypadki do trzech pięter, ale bramka nie wie, które
-piętro jest jej. `develop` zaczyna ciągnąć kontenery przy każdym pushu na gałąź roboczą. `main`
-puszcza zmianę bez scenariusza obciążenia. Pull request do `develop` albo czeka na Dockera, albo
-wjeżdża na `main` bez percentyli publicznego odczytu. Ten numer spina piętra z gałęziami, które
-już opisuje `docs/cicd/02-bramki.md`.
+Bez tego numeru numery 01–21 dokładają przypadki do trzech pięter, ale jeden `dotnet test`
+nie wie, które piętro jest które. Filtr jednostkowy zaczyna ciągnąć kontenery. Obciążenie
+czekałoby na `main` i pull request do `develop` wjeżdżałby dalej bez percentyli publicznego
+odczytu. Ten numer spina piętra z gałęziami, które już opisuje `docs/cicd/02-bramki.md`.
 
 Scenariusz, który się psuje, jest konkretny. Ktoś dopisuje test outboxa z Postgresem i bez
-cechy. Filtr `develop` go bierze, bo nie umie odrzucić kontenera. Runner `ubuntu-latest` albo
+cechy. Filtr jednostkowy go bierze, bo nie umie odrzucić kontenera. Runner `ubuntu-latest` albo
 nie ma Dockera i pali się na starcie, albo ma Dockera i wydłuża każdą zmianę w jądrze. Osobno
-ktoś mierzy `GET` strony pętlą `Task.WhenAll` albo odkłada narzędzie na konsolę. Bramka `main`
-nie pada sama. Po tym numerze piętro bez cechy jedzie codziennie, kontener jedzie na `release`,
-a NBomber jedzie na `main` i nie jest warunkiem wejścia na `develop`.
+ktoś mierzy `GET` strony pętlą `Task.WhenAll` albo odkłada narzędzie na konsolę. Bramka nie
+pada sama. Po tym numerze piętro bez cechy jedzie w `unit-tests`, kontener jedzie w
+`integration-tests`, a NBomber jedzie w `performance`. Trzy joby są warunkiem wejścia na
+`develop`.
 
 Motyw, który przychodzi potem, nie otwiera tej piramidy. Test komponentu React i telefonu stoi
 przy `docs/frontend`. Najbliższy numer to motyw. Usługi mają już projekty, cechy i trzy komendy.
@@ -26,12 +26,13 @@ rozdzielił.
 
 ## Po co
 
-Numery 01–21 dokładają przypadki do trzech pięter. Bez wspólnej reguły bramka `develop` zaczyna
-ciągnąć kontenery, a bramka `main` puszcza zmianę bez scenariusza obciążenia. Ten numer spina
-piętra z gałęziami z `docs/cicd/02-bramki.md`. Po nim jest prawdą, że test jednostkowy odpala
-się na `develop` i lokalnie bez Dockera, test integracyjny z Testcontainers odpala się na
-`release`, a test NBomber z cechą `Category=Performance` odpala się na `main` i nie blokuje pull
-requestu do `develop`.
+Numery 01–21 dokładają przypadki do trzech pięter. Bez wspólnej reguły jeden `dotnet test`
+bez filtra miesza kontener z NBomberem i z przypadkiem, który ma chodzić bez Dockera. Ten
+numer spina piętra z gałęziami z `docs/cicd/02-bramki.md`. Po nim jest prawdą, że trzy joby
+odpalają się na `develop`, na `release` i na `main`. Test jednostkowy idzie filtrem bez
+Dockera. Test integracyjny z Testcontainers idzie filtrem `Category=Integration`. Test
+NBomber z cechą `Category=Performance` idzie osobnym jobem. Czerwony przebieg któregoś z
+trzech blokuje pull request do `develop`.
 
 Każdy przypadek ma jeden powód do padnięcia i nazwę w kształcie
 `Create_blank_title_returns_invalid`. Biblioteki współdzielone i każda z pięciu usług mają
@@ -119,9 +120,9 @@ Filtr jest umową między tym numerem a bramkami.
 
 | Gałąź | Job | Filtr |
 | --- | --- | --- |
-| `develop` | testy jednostkowe | `Category!=Integration&Category!=Performance` |
-| `release` | testy integracyjne | `Category=Integration` |
-| `main` | testy wydajnościowe | `Category=Performance` |
+| `develop`, `release`, `main` | testy jednostkowe | `Category!=Integration&Category!=Performance` |
+| `develop`, `release`, `main` | testy integracyjne | `Category=Integration` |
+| `develop`, `release`, `main` | testy wydajnościowe | `Category=Performance` |
 
 Jedna komenda `dotnet test` bez filtra na `develop` ciągnie Docker i NBomber przy każdym pushu
 na gałąź roboczą. Osobne solution na piętro odpadło, bo projekt testowy należy do komponentu i
@@ -131,9 +132,10 @@ wtedy, gdy w jednym projekcie stanie obok przypadek bez cechy. Wspólna stała, 
 `src/shared/tests/TestTraits.cs` albo w każdej asemblacji tak samo, nazywa cechę `Category`, a
 wartościami są `Integration` i `Performance`. Drugiej nazwy cechy na to samo piętro nie ma.
 
-Koszt to trzy przebiegi w trzech bramkach i dyscyplina cechy. Job `develop` używa filtra bez
-integracji i bez wydajności. Job `release` używa `Category=Integration`. Job `main` używa
-`Category=Performance` i nie oznacza scenariusza jako pomijalnego. Checki nazwy gałęzi, CodeQL,
+Koszt to trzy przebiegi na każdej długiej gałęzi i dyscyplina cechy. Job `unit-tests` używa
+filtra bez integracji i bez wydajności. Job `integration-tests` używa `Category=Integration`.
+Job `performance` używa `Category=Performance` i nie oznacza scenariusza jako pomijalnego.
+Checki nazwy gałęzi, CodeQL,
 SonarQube, skan obrazu, SBOM i tag komponentu zostają w `docs/cicd`. Ten numer dokłada filtr
 `dotnet test` do trzech bramek i zostawia pozostałe checki tak, jak opisuje numer CI. Oczekiwany
 skutek filtra jednostkowego: w logu nie ma startu kontenera `postgres:16-alpine` i nie ma startu
@@ -217,9 +219,9 @@ Cechy:
 
 | Cecha | Gdzie | Bramka |
 | --- | --- | --- |
-| brak | `Core.Tests`, `Application.Tests`, testy bibliotek bez bazy | `develop` |
-| `Category=Integration` | `Persistence.Tests`, `Api.Tests`, testy bibliotek z kontenerem | `release` |
-| `Category=Performance` | `Performance.Tests` | `main` |
+| brak | `Core.Tests`, `Application.Tests`, testy bibliotek bez bazy | `unit-tests` |
+| `Category=Integration` | `Persistence.Tests`, `Api.Tests`, testy bibliotek z kontenerem | `integration-tests` |
+| `Category=Performance` | `Performance.Tests` | `performance` |
 
 Wspólna stała, jeden typ w `src/shared/tests/TestTraits.cs` albo w każdej asemblacji tak samo:
 nazwa `Category`, wartości `Integration` i `Performance`. Filtr `dotnet test` używa tych
@@ -308,8 +310,8 @@ sprawdzałby outbox. Przypadek integracyjny na tej samej regule dostaje
 `[Trait("Category", "Integration")]` i nie powtarza asercji Core, tylko skutek transakcji.
 
 Workflow bramek, pliki w `.github/workflows` opisane przez `docs/cicd/02-bramki.md`, dostają
-filtr z tabeli gałęzi. Job `develop` nie instaluje warunku „odpal też Integration”. Job `main`
-nie oznacza scenariusza wydajnościowego jako pomijalnego.
+filtr z tabeli jobów. Job `unit-tests` nie instaluje warunku „odpal też Integration”. Job
+`performance` nie oznacza scenariusza wydajnościowego jako pomijalnego.
 
 `JJDevHub.slnx` zawiera każdy projekt z tabel. Projekt testowy ma `IsTestProject` ustawione tak,
 żeby `dotnet test` na solution go widział.
@@ -334,9 +336,10 @@ cechę `Category=Performance` na klasie scenariusza. Wpisz projekty do `JJDevHub
 
 ### 4. Filtr bramek
 
-W jobie bramki `develop` ustaw
-`dotnet test --filter "Category!=Integration&Category!=Performance"`. W jobie `release` ustaw
-filtr `Category=Integration`. W jobie `main` ustaw filtr `Category=Performance`. Zostaw
+W jobie `unit-tests` ustaw
+`dotnet test --filter "Category!=Integration&Category!=Performance"`. W jobie
+`integration-tests` ustaw filtr `Category=Integration`. W jobie `performance` ustaw filtr
+`Category=Performance`. Trzy joby startują na `develop`, `release` i `main`. Zostaw
 pozostałe checki bramki tak, jak opisuje numer CI.
 
 ### 5. Nazwy
@@ -366,19 +369,20 @@ testu brakuje asercji, dopisz ją do projektu piętra, które już wskazuje nume
 | Element | Po co istnieje | Kto woła |
 | --- | --- | --- |
 | `[Fact]` | jeden powód, jedna nazwa | `dotnet test` |
-| `[Trait("Category", "Integration")]` | wyłącza kontener z `develop` | filtr bramki `release` |
-| `[Trait("Category", "Performance")]` | trzyma NBomber na `main` | filtr bramki `main` |
-| `*.Core.Tests` | reguła agregatu bez hosta | bramka `develop` |
-| `*.Application.Tests` | handler z portem podstawionym | bramka `develop` |
-| `*.Persistence.Tests` | transakcja w Postgresie | bramka `release` |
-| `*.Api.Tests` | status HTTP i `ProblemDetails` | bramka `release` |
-| `*.Performance.Tests` | scenariusz odczytu | bramka `main` |
+| `[Trait("Category", "Integration")]` | wyłącza kontener z `unit-tests` | filtr `integration-tests` |
+| `[Trait("Category", "Performance")]` | trzyma NBomber poza `unit-tests` | filtr `performance` |
+| `*.Core.Tests` | reguła agregatu bez hosta | job `unit-tests` |
+| `*.Application.Tests` | handler z portem podstawionym | job `unit-tests` |
+| `*.Persistence.Tests` | transakcja w Postgresie | job `integration-tests` |
+| `*.Api.Tests` | status HTTP i `ProblemDetails` | job `integration-tests` |
+| `*.Performance.Tests` | scenariusz odczytu | job `performance` |
 | Filtr lokalny bez cech integracji i wydajności | codzienny przebieg bez Dockera | `dotnet test` w katalogu repozytorium |
 | `Testcontainers.Kafka` | szyna w trybie KRaft | test outboxa i konsumenta |
 
 `[Fact]` jest jednym powodem i jedną nazwą dla `dotnet test`.
-`[Trait("Category", "Integration")]` wyłącza kontener z `develop` i wpuszcza go na `release`.
-`[Trait("Category", "Performance")]` trzyma NBomber na `main`. `*.Core.Tests` ćwiczy regułę
+`[Trait("Category", "Integration")]` wyłącza kontener z `unit-tests` i wpuszcza go do
+`integration-tests`. `[Trait("Category", "Performance")]` trzyma NBomber w `performance`.
+`*.Core.Tests` ćwiczy regułę
 agregatu bez hosta. `*.Application.Tests` ćwiczy handler z portem podstawionym.
 `*.Persistence.Tests` ćwiczy transakcję w Postgresie. `*.Api.Tests` ćwiczy status HTTP i
 `ProblemDetails`. `*.Performance.Tests` ćwiczy scenariusz odczytu.
@@ -446,9 +450,10 @@ dostają własny `[Fact]`, bo każda usługa jest osobnym skutkiem.
   jeden skutek, tak jak odrzucenie pustego tytułu jednym kodem.
 - Nazwa metody to `Czynność_warunek_skutek`. Wzorzec: `Create_blank_title_returns_invalid`.
   Słowo `Test1` i zdanie po polsku w nazwie metody odpadły.
-- Przypadek bez cechy jedzie na `develop`. `Category=Integration` jedzie na `release`.
-  `Category=Performance` jedzie na `main` i nie jest warunkiem wejścia na `develop`. Czerwony
-  NBomber nie blokuje pull requestu do `develop`, o ile reszta tamtej bramki jest zielona.
+- Przypadek bez cechy jedzie w `unit-tests`. `Category=Integration` jedzie w
+  `integration-tests`. `Category=Performance` jedzie w `performance`. Trzy joby są warunkiem
+  wejścia na `develop` i powtarzają się na `release` oraz na `main`. Czerwony NBomber
+  blokuje pull request do `develop`.
 - Postgres w teście to `postgres:16-alpine`. Kafka w teście to KRaft przez Testcontainers.
   Zookeepera w tym przebiegu nie ma.
 - Pięć usług ma `Core.Tests`, `Application.Tests`, `Persistence.Tests`, `Api.Tests` i
@@ -515,9 +520,10 @@ dostają własny `[Fact]`, bo każda usługa jest osobnym skutkiem.
   teście, bez Zookeepera. W tym pliku test szyny z numerów 17–21 używa tego trybu. Nie bierzemy
   stąd dokładania Zookeepera do joba `release`.
 - [dotnet test, filtr](https://learn.microsoft.com/dotnet/core/tools/dotnet-test). Wiążąca jest
-  składnia `--filter` i cechy. W tym pliku `develop` używa
-  `Category!=Integration&Category!=Performance`, `release` używa `Category=Integration`, a
-  `main` używa `Category=Performance`. Nie bierzemy stąd jednego `dotnet test` bez filtra na
+  składnia `--filter` i cechy. W tym pliku `unit-tests` używa
+  `Category!=Integration&Category!=Performance`, `integration-tests` używa
+  `Category=Integration`, a `performance` używa `Category=Performance`. Trzy joby jadą na
+  `develop`, `release` i `main`. Nie bierzemy stąd jednego `dotnet test` bez filtra na
   gałęzi roboczej.
 - [eShop](https://github.com/dotnet/eshop). Wiążący jest wzorzec granic usług i warstw bez
   MediatR. W tym pliku `JJDevHub.Cqrs.Tests` ćwiczy własny mediator i zachowania, bez MediatR, a
@@ -528,8 +534,9 @@ dostają własny `[Fact]`, bo każda usługa jest osobnym skutkiem.
 
 - `dotnet test --filter "Category!=Integration&Category!=Performance"` przechodzi bez startu
   kontenera i bez NBomber.
-- Job bramki `develop` używa tego filtra. Job `release` używa `Category=Integration`. Job `main`
-  używa `Category=Performance`.
+- Job `unit-tests` używa tego filtra na `develop`, `release` i `main`. Job
+  `integration-tests` używa `Category=Integration` na tych trzech gałęziach. Job
+  `performance` używa `Category=Performance` na tych trzech gałęziach.
 - W solution są projekty testowe bibliotek z tabeli oraz piątka `Core.Tests`,
   `Application.Tests`, `Persistence.Tests`, `Api.Tests`, `Performance.Tests` dla Identity, News,
   Learning, Cv i Contact.
