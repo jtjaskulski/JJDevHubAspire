@@ -21,8 +21,8 @@ test integracyjny pada, bo publikacja nie widzi bazy, którą kontener podnosi d
 `release`. Para `develop` → `main` jest już odrzucona przez `branch-name`. To nie wystarcza
 rulesetowi `main`. Pełny ciąg na `main` jest listą checków, nie wspomnieniem, że „kiedyś na
 `release` było zielono”. Starszy zielony przebieg integracji nie opisuje głowy, która doszła
-później. `strict_required_status_checks_policy` z numeru `01` wymaga świeżego statusu na tej
-głowie.
+później. Głową promocji jest `develop` albo `release`. Nowy commit na tej głowie powtarza
+bramkę. `develop` przy promocji nie jest rebase'owane.
 
 Trzeci rozjazd jest w pull requeście, który dotyka tylko `docs/cicd/02-bramki.md`. W drzewie
 nie ma jeszcze `*.csproj`. Job `build` ma wypisać `no material for build` i skończyć się
@@ -48,7 +48,7 @@ nie ma prawa ruszyć.
 
 Trzy bramki układają koszt sprawdzenia według dojrzałości zmiany.
 
-| Cel | Przed squashem |
+| Cel | Przed scaleniem |
 | --- | --- |
 | `develop` | build, test jednostkowy, format, sekret, podatność, nazwa, tytuł |
 | `release` | oraz integracja, CodeQL, SonarQube, skan obrazu |
@@ -91,6 +91,13 @@ testu przy istniejącym projekcie pisze porażkę.
 ma sens. Pull request o złej nazwie nie wchodzi na `develop`. Zielona kompilacja nie zmienia
 werdyktu `branch-name`.
 
+Gałąź robocza, która została w tyle za `develop`, dostaje rebase na `origin/develop`, zanim
+`build`, `unit-tests` i `format` raportują się na SHA, które ruleset `develop` uznaje za
+aktualne. Świeżość względem celu jest włączona tylko na `develop`. Wciągnięcie `main` do
+tej gałęzi nie odświeża bramki: `branch-name` pada na zamku przodków. Promocja jest merge
+commitem. Jej głową jest długa gałąź, więc `develop` nie jest rebase'owane pod test
+integracyjny ani pod test wydajności.
+
 ## Dlaczego ta technologia
 
 ### Trzy progi zamiast jednego workflowa
@@ -113,8 +120,11 @@ Koszt, który zostaje, jest powtórzeniem tańszych jobów przy promocji `develo
 `main`. `build`, `unit-tests` i `format` raportują się na każdej z trzech gałęzi. Przy
 `ubuntu-latest` powtórzenie kompilacji i testu jednostkowego jest tańsze niż dziura w
 rulesecie. Dziura wygląda tak: na `develop` test przeszedł, na drodze do `main` nikt go nie
-powtórzył, a w międzyczasie doszedł squash kernela. Świeży status na głowie promocji jest
-tym, czego wymaga `strict_required_status_checks_policy`.
+powtórzył, a w międzyczasie doszedł squash kernela. Głowa promocji jest czubkiem `develop`
+albo `release`. Nowy commit na tej głowie zmienia SHA i stary zielony `unit-tests` jej nie
+opisuje. Świeżość względem celu na `release` i `main` zostaje wyłączona. Włączona żądałaby
+wciągnięcia merge commita promocji z powrotem do źródła, a kierunek z numeru `01` jest
+jeden.
 
 Podział na trzy pliki workflow, a nie jeden plik z warunkiem gałęzi w środku, trzyma nazwę
 checka stabilną. `integration-tests` nie startuje na `develop`, bo wyzwalacz ma gałęzie
@@ -129,6 +139,25 @@ sam, w scaleniu, które dodaje workflow. Ten numer nie wpisuje `codeql`, `sonarq
 `release-tags`, `zizmor`, `action-pins` ani `scorecard`, dopóki ich plików nie ma w tym
 samym scaleniu. Wpisanie nazwy wcześniej zatrzymuje każdy merge, łącznie z poprawką
 dokumentacji bramek.
+
+### Rebase gałęzi roboczej przed bramką
+
+`strict_required_status_checks_policy` na `develop` wymaga, żeby głowa niosła aktualny
+`develop`. Rebase na `origin/develop` i force-push dają nowe SHA, na którym `build`,
+`unit-tests` i `format` raportują się od zera. Scalenie `develop` do gałęzi roboczej merge
+commitem też dogoniłoby cel, ale zostawiłoby na głowie drugiego rodzica. Squash na
+`develop` i tak zgniata tę historię. Rebase trzyma głowę jako linię commitów nad czubkiem
+`develop`.
+
+Wciągnięcie `main` albo `release` do gałęzi roboczej odpadło. `branch-name` kończy się
+kodem `1`, bo `merge-base` z `origin/main` nie jest przodkiem `origin/develop`. Zielony
+`build` takiego drzewa nie jest bramką pracy wyciętej z `develop`.
+
+Rebase `develop` pod promocję odpadł. Głową pull requestu `develop` → `release` jest sama
+gałąź `develop`. `non_fast_forward` nie pozwala jej przepisać. Promocja jest merge
+commitem: na `release` dochodzi test integracyjny, na `main` test wydajności, a tańsze
+joby powtarzają się na tej głowie. Świeżość względem celu zostaje wyłączona na tych dwóch
+gałęziach, żeby GitHub nie żądał powrotu merge commita do źródła.
 
 ### `ubuntu-latest` na pull request
 
@@ -552,6 +581,10 @@ scalenia zablokowany. To jest bramka, której sam numer `01` nie ma.
   testowego.
 - Nazwa joba nie zmienia się przy okazji refaktoru YAML. Ruleset trzyma ten sam tekst.
 - Zielony tytuł `feat(news): publish article revision` nie scala się przy czerwonym teście.
+- Zaległa gałąź robocza jest rebase'owana na `origin/develop`, zanim bramka `develop` jest
+  zielona na jej SHA.
+- Promocja jest merge commitem. `develop` nie jest rebase'owane pod bramkę `release` ani
+  `main`.
 
 ## Poza zakresem
 
@@ -582,9 +615,11 @@ scalenia zablokowany. To jest bramka, której sam numer `01` nie ma.
   wyklikanej w ustawieniach ani wymaganej recenzji. Nazwy siedzą w JSON rulesetu.
 - [Troubleshooting required status checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
   Wiążące jest to, że workflow pominięty filtrem ścieżek zostawia check w oczekiwaniu i
-  blokuje scalenie, oraz że sukces ma dotyczyć najnowszego SHA. Dotyczy zakazu `paths` i
-  świeżego przebiegu na promocji `release` → `main`. Ze źródła nie bierzemy pominięcia
-  całego joba warunkiem `if` jako zamiennika linii `no material for build`.
+  blokuje scalenie, oraz że sukces ma dotyczyć najnowszego SHA. Dotyczy zakazu `paths`,
+  rebase gałęzi roboczej przed bramką `develop` i powtórzenia jobów na głowie promocji
+  `release` → `main`. Ze źródła nie bierzemy pominięcia całego joba warunkiem `if` jako
+  zamiennika linii `no material for build`. Ze źródła nie bierzemy świeżości względem celu
+  na `release` i `main`.
 - [Workflow syntax for paths](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onpushpull_requestpull_request_targetpathspaths-ignore).
   Wiążące są filtry `paths` i `paths-ignore`, które ograniczają, kiedy workflow w ogóle
   startuje. Dotyczy zakazu tych filtrów w pięciu plikach tego numeru. Ze źródła nie bierzemy
