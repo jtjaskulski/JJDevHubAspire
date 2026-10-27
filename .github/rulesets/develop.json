@@ -37,6 +37,15 @@
           },
           {
             "context": "pr-title"
+          },
+          {
+            "context": "build"
+          },
+          {
+            "context": "unit-tests"
+          },
+          {
+            "context": "format"
           }
         ]
       }

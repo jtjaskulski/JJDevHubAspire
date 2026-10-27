@@ -111,14 +111,16 @@ jobie `branch-name`. Nie da się przeskoczyć środkowej gałęzi. Poprawka nie
 dostaje skrótu `hotfix` wyciętego z `main`, bo taki skrót ominąłby CodeQL i
 SonarQube.
 
-Tytuł jest Conventional Commits. `feat` i `fix` mają zakres z listy. Scalenie na
-każdej z trzech gałęzi jest wyłącznie squashem, więc commit na gałęzi docelowej
-ma treść tytułu. Job `pr-title` pilnuje tytułu. Zakres wybiera komponent, którego
-numer wersji podbije numer `07`.
+Tytuł jest Conventional Commits. `feat` i `fix` mają zakres z listy. Wejście na
+`develop` jest squashem, więc commit na `develop` ma treść tytułu. Promocja na
+`release` i `main` jest merge commitem. Job `pr-title` pilnuje tytułu. Zakres
+wybiera komponent, którego numer wersji podbije numer `07`.
 
 Szczegóły: [01-galezie.md](01-galezie.md).
 
 ## Trzy bramki
+
+Skrót checków numeru 02 jest w [bramki.md](../bramki.md).
 
 Bramki dotyczą komponentów dotkniętych zmianą i są wymagane od pierwszego pull
 requestu po numerach `01`–`07`.
@@ -185,7 +187,8 @@ Deploy nie jest w tej tabeli. Nie jest checkiem pull requestu. Jego plik to
 Gałęzie oraz checki nazw i tytułów. Dodaje `.github/workflows/branch-name.yml`,
 `.github/workflows/pr-title.yml`, skrypty tych dwóch checków i trzy zestawy
 reguł: `develop`, `release`, `main`. Chroni długie gałęzie przed kasowaniem i
-przed pushem, który nie jest przewinięciem do przodu. Zostawia wyłącznie squash.
+przed pushem, który nie jest przewinięciem do przodu. Na `develop` zostawia
+squash, na `release` i `main` merge commit.
 
 To jest pierwszy numer całego produktu. Nie zakłada solution, testu ani
 Dockerfile. Gałąź `feature/lesson-markdown` przechodzi. Gałąź
@@ -485,7 +488,7 @@ Ich brak jako procesów, przy obecności plików specyfikacji, jest zgodny z tym
   Produkt utrzymuje jedna osoba. Bramką jest check.
 - [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
   Wiążące są typ, zakres i znak `!`. Dotyczy tytułu pull requestu i tego, że
-  squash zapisuje ten tytuł jako commit, z którego numer `07` liczy wersję. Ze
+  squash na `develop` zapisuje ten tytuł jako commit, z którego numer `07` liczy wersję. Ze
   źródła nie bierzemy zakresu spoza listy komponentów, `infra` i `shared`.
   `docs(cicd):` pada, bo `cicd` nie jest zakresem.
 - [Required status checks](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches#require-status-checks-before-merging).

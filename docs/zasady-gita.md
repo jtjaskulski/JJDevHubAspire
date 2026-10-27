@@ -2,7 +2,7 @@
 
 Długie gałęzie to `develop`, `release` i `main`. Praca wychodzi z `develop` i wraca na `develop`. Na `release` wchodzi głowa `develop`. Na `main` wchodzi głowa `release`.
 
-Scalenie jest squashem. Tytuł pull requestu jest commitem na gałęzi docelowej. Force-push gałęzi roboczej jest dozwolony do scalenia. Po squashu ta gałąź znika. `develop`, `release` i `main` zostają.
+Scalenie na `develop` jest squashem. Tytuł pull requestu jest commitem na `develop`. Promocja `develop` → `release` i `release` → `main` jest merge commitem. Force-push gałęzi roboczej jest dozwolony do scalenia. Gałąź, która została w tyle za `develop`, jest rebase'owana na `origin/develop`. Po squashu ta gałąź znika. `develop`, `release` i `main` zostają.
 
 ## Nazwa gałęzi
 
@@ -20,7 +20,7 @@ Scalenie jest squashem. Tytuł pull requestu jest commitem na gałęzi docelowej
 | `develop` → `release` | `develop` → `main` |
 | `release` → `main` | `main` → `develop` |
 
-Wielka litera, podkreślenie, spacja i podwójny myślnik padają. `merge-base` głowy z `origin/main` ma być przodkiem `origin/develop`, więc gałąź wycięta z `main` pada także przy poprawnym prefiksie.
+Wielka litera, podkreślenie, spacja i podwójny myślnik padają. `merge-base` głowy z `origin/main` ma być przodkiem `origin/develop`, więc gałąź wycięta z `main` albo gałąź, która wciągnęła `main`, pada także przy poprawnym prefiksie. Naprawa tej drugiej jest rebasem na `origin/develop`.
 
 ## Tytuł
 
@@ -55,3 +55,5 @@ Prefiks gałęzi `feature/` i typ `feat` to dwie listy. Gałąź `docs/galezie` 
 Kod `0` zgadza się z regułą. Kod `1` odmawia. Kod `2` znaczy, że zabrakło argumentu. Job w CI nie dostaje `--skip-ancestry`.
 
 Pełna specyfikacja checków jest w [cicd/01-galezie.md](cicd/01-galezie.md).
+
+Skrót bramek scalenia jest w [bramki.md](bramki.md).
