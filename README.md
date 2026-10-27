@@ -112,7 +112,7 @@ Zmiana w `JJDevHub.Shared.Kernel` podbija każdą usługę, która go referencjo
 
 Długie gałęzie to `develop`, `release` i `main`. Gałąź robocza wychodzi tylko z `develop`. Prefiksy: `feature/`, `fix/`, `docs/`, `chore/`, `ci/`, `refactor/`, `test/`, dalej kebab-case, na przykład `feature/lesson-markdown`.
 
-Tytuł pull requestu jest Conventional Commits. `feat` i `fix` mają zakres z listy komponentów, na przykład `feat(news): publish article revision`. Scalenie jest tylko squashem, więc commit na gałęzi docelowej ma treść tytułu. Job `branch-name` odrzuca złą gałąź. Job `pr-title` odrzuca zły tytuł.
+Tytuł pull requestu jest Conventional Commits. `feat` i `fix` mają zakres z listy komponentów, na przykład `feat(news): publish article revision`. Wejście na `develop` jest squashem, więc commit na `develop` ma treść tytułu. Promocja `develop` → `release` i `release` → `main` jest merge commitem. Gałąź robocza, która została w tyle, jest rebase'owana na `develop`. Job `branch-name` odrzuca złą gałąź. Job `pr-title` odrzuca zły tytuł.
 
 `develop` przyjmuje zmianę po testach jednostkowych i bramce pierwszej. `release` przyjmuje ją po bramce drugiej. `main` przyjmuje ją po bramce trzeciej. Na `main` leżą tylko zmiany, które przeszły pełny ciąg. Deploy na maszynę dochodzi na końcu, z już nadanego tagu. Ratunek to poprzedni tag tego komponentu.
 

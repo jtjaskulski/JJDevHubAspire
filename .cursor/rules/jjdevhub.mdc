@@ -9,7 +9,8 @@ alwaysApply: true
 - Usługi: Identity, News, Learning, Cv, Contact. Contact wysyła dwa pushe na telefon ownera: studenci i rekruterzy.
 - Bramki gita są w `docs/cicd/` numerach `01`–`07`, zanim powstanie pierwsza usługa. Numery `08`–`16` opisują VM, obserwowalność i deploy. W jednej sesji rób jeden numer.
 - README i pliki w `docs/` są po polsku. Szczegóły README są w regule `readme`. W plikach `.md` nie pisz o agentach, sesjach ani generowaniu kodu.
-- Commity i branche po angielsku. Gałęzie robocze tylko z `develop`. Prefiksy: `feature/`, `fix/`, `docs/`, `chore/`, `ci/`, `refactor/`, `test/` plus kebab-case. Tytuł PR jest commitem squash w formacie Conventional Commits (`feat(news): publish article revision`). `feat` i `fix` mają zakres komponentu. Opis PR zostaje zdaniem rozkazującym.
+- Nie uruchamiaj `git commit`, `git push` ani `gh pr create`, dopóki ta wiadomość wprost o to nie prosi. Plan i reguła o stylu commita nie są prośbą. W commicie nie ma `Co-authored-by: Cursor <cursoragent@cursor.com>` ani innego trailera agenta.
+- Commity i branche po angielsku. Gałęzie robocze tylko z `develop`. Prefiksy: `feature/`, `fix/`, `docs/`, `chore/`, `ci/`, `refactor/`, `test/` plus kebab-case. Tytuł PR na `develop` jest commitem squash w formacie Conventional Commits (`feat(news): publish article revision`). Promocja `develop` → `release` i `release` → `main` jest merge commitem. Gałąź robocza, która została w tyle, jest rebase'owana na `develop`. `feat` i `fix` mają zakres komponentu. Opis PR zostaje zdaniem rozkazującym.
 - Wydania osobno na komponent: tag `<komponent>-vX.Y.Z`. Komponenty: `identity`, `news`, `learning`, `cv`, `contact`, `gateway`, `web`, `mobile`. Deploy tylko z tagu na `main`.
 - Sekrety: OpenBao. W gicie nie ma wartości sekretu ani pliku SOPS. Lokalnie token deweloperski jest w user secrets. Poza gitem: `.idea/`, `.pnpm-store/`, `.cursor/settings.json`.
-- `.cursor/rules/` commituj. Sekretów produkcji do workflow nie wkładaj.
+- Pliki w `.cursor/rules/` są w gicie. Sekretów produkcji do workflow nie wkładaj.

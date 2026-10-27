@@ -30,11 +30,13 @@ artykułu leży już w historii.
 
 Drugi rozjazd jest w promocji. Pull request z głową `develop` i celem `main` pomija
 `release`. Kod `1` w `branch-name` zatrzymuje go, zanim ktokolwiek policzy wersję. Tag na
-`main` opisywałby wtedy zmianę, która nie widziała środkowej gałęzi. Squash promocji może
-nazywać się `chore: promote to release`. Ten tytuł sam nie niesie `feat(news)`. Poszczególne
-`feat` i `fix` żyją jako commity na `develop`, a pliki wersji niosą je dalej, gdy squash
-promocji sklei kilka commitów w jeden. Ten numer pilnuje pary gałęzi i tytułu. Liczenie
-wersji zostaje w numerze `07`.
+`main` opisywałby wtedy zmianę, która nie widziała środkowej gałęzi. Merge commit promocji
+może nazywać się `chore: promote to release`. Ten tytuł sam nie niesie `feat(news)`.
+Poszczególne `feat` i `fix` żyją jako commity na `develop`, a pliki wersji niosą je dalej.
+Drugi rodzic merge commita jest czubkiem `develop`, więc następna promocja widzi tylko nowe
+commity. Squash promocji zapisałby na `release` nowy SHA, który nie jest przodkiem
+`develop`, i kolejny pull request `develop` → `release` dostałby konflikt na tych samych
+plikach. Ten numer pilnuje pary gałęzi i tytułu. Liczenie wersji zostaje w numerze `07`.
 
 Pliki do dodania są w sekcji [Klasy i ścieżki](#klasy-i-ścieżki). Żaden z nich nie jest w
 tym opisie traktowany jako już obecny w drzewie. Plan mówi, co utworzyć. Pierwszy pull
@@ -46,7 +48,7 @@ request funkcji, także taki, który tylko dodaje dokument albo workflow, już p
 Jedna osoba prowadzi trzy długie gałęzie i wiele krótkich. `develop` zbiera codzienną pracę.
 `release` jest miejscem, przez które zmiana przechodzi, zanim zbliży się do tagu. `main`
 jest miejscem, na którym numer `07` wycina tag komponentu. Bez wspólnej nazwy historia
-miesza funkcję, poprawkę i dokumentację. Squash na gałąź docelową zapisuje wtedy przypadkowy
+miesza funkcję, poprawkę i dokumentację. Squash na `develop` zapisuje wtedy przypadkowy
 tytuł. Późniejsze wydanie czyta ten tytuł jak listę zmian. Zły tytuł albo zła nazwa psuje
 numer wersji, zanim powstanie katalog usługi.
 
@@ -66,6 +68,13 @@ Gałąź wycięta z `main` jako cicha poprawka, nawet z prefiksem `fix/`, pada t
 `1`. Osobnej gałęzi `hotfix` ten numer nie wprowadza. Poprawka wraca na `main` tą samą drogą
 co funkcja, tagiem komponentu.
 
+Gdy na `develop` wejdzie kolejny squash, gałąź robocza, która jeszcze nie jest scalona,
+zostaje w tyle. Aktualizacja to rebase na `origin/develop` i force-push tej gałęzi.
+Force-push gałęzi roboczej jest dozwolony do scalenia. Wciągnięcie `main` albo `release`
+do gałęzi roboczej psuje zamek przodków: `merge-base` z `origin/main` przestaje być
+przodkiem `origin/develop` i `branch-name` kończy się kodem `1`, choć prefiks jest
+poprawny. Naprawa to zdjęcie tego scalenia i rebase na `origin/develop`.
+
 Tytuł `feat` i `fix` niesie zakres. Lista jest zamknięta: `identity`, `news`, `learning`,
 `cv`, `contact`, `gateway`, `web`, `mobile`, `infra`, `shared`.
 `feat(news): publish article revision` wskazuje News. `feat(blog): publish article revision`
@@ -81,12 +90,21 @@ i nie jest tagiem obrazu. Zakres `infra` nie tworzy tagu obrazu usługi. Oba wol
 Numer, który liczy z nich podbicie, jest numerem `07`. Ten numer nie pozwala wpisać nazwy
 spoza listy.
 
-Scalenie squashem sprawia, że commit na gałęzi docelowej jest równy tytułowi pull requestu.
-Drugiego opisu w osobnym polu nie ma. Treść commitów z gałęzi roboczej nie staje się
-osobnymi commitami na `develop`. Numer `07` dostaje jedną linijkę na jedną zmianę wpuszczoną
-na `develop`. Merge commit zostawiłby na długiej gałęzi drugi opis, inny niż tytuł, i
-wydanie nie wiedziałoby, który czytać. Rebase z zachowaniem serii commitów z gałęzi roboczej
-rozbiłby jedną rewizję artykułu na kilka linijek, z których tylko jedna miałaby zakres.
+Scalenie squashem na `develop` sprawia, że commit na tej gałęzi jest równy tytułowi pull
+requestu. Drugiego opisu w osobnym polu nie ma. Treść commitów z gałęzi roboczej nie staje
+się osobnymi commitami na `develop`. Numer `07` dostaje jedną linijkę na jedną zmianę
+wpuszczoną na `develop`. Merge commit przy wejściu na `develop` zostawiłby drugi opis,
+inny niż tytuł, i wydanie nie wiedziałoby, który czytać. Rebase z zachowaniem serii
+commitów z gałęzi roboczej jako metoda scalenia na `develop` rozbiłby jedną rewizję
+artykułu na kilka linijek, z których tylko jedna miałaby zakres. Rebase gałęzi roboczej
+na `origin/develop` przed tym squashem jest aktualizacją głowy, nie drugą metodą scalenia
+długiej gałęzi.
+
+Promocja `develop` → `release` oraz `release` → `main` jest merge commitem. Tytuł nadal
+przechodzi `pr-title` i może brzmieć `chore: promote to release`. Drugi rodzic jest
+czubkiem źródła. Następna promocja liczy scalenie od tego czubka i niesie tylko commity,
+których na celu jeszcze nie ma. Squash promocji zostawiłby na celu commit o innym SHA niż
+źródło. Kolejny trójstronny merge traktowałby te same pliki jako dodane po obu stronach.
 
 Przykład nazwy, która przechodzi: `feature/lesson-markdown`. Przykład nazwy, która pada:
 `feature/lesson_markdown`. Przykład tytułu, który przechodzi:
@@ -103,12 +121,15 @@ raportujący `build`. Wpisanie jej wcześniej zatrzymałoby także poprawkę sam
 `required_approving_review_count` zostaje `0`. Produkt utrzymuje jedna osoba. Bramką jest
 check. Czekanie na drugą recenzję zatrzymałoby pierwszy pull request z workflowem.
 
-`strict_required_status_checks_policy` jest włączone. Gałąź w pull requeście jest aktualna
-względem celu. Zielony `pr-title` z poprzedniego przebiegu nie wystarcza, gdy na `develop`
-wszedł w międzyczasie inny squash. Inaczej rewizja artykułu scaliłaby się ze starym
-werdyktem, a tytuł na gałęzi docelowej nie odpowiadałby temu, co ruleset ostatnio widział.
-Po squashu `delete_branch_on_merge` kasuje gałąź roboczą. Chronione `develop`, `release` i
-`main` zostają.
+`strict_required_status_checks_policy` jest włączone na `develop`. Gałąź robocza w pull
+requeście niesie aktualny `develop`. Zielony `pr-title` z poprzedniego przebiegu nie
+wystarcza, gdy na `develop` wszedł w międzyczasie inny squash. Gałąź dogania cel rebasem
+na `origin/develop` i force-pushem, a checki raportują się na nowym SHA. Na `release` i
+`main` ta świeżość względem celu jest wyłączona. Merge commit promocji żyje tylko na
+gałęzi docelowej. Włączona świeżość żądałaby wciągnięcia `release` z powrotem do
+`develop`, a kierunek promocji jest jeden. Nowy commit na głowie promocji i tak zmienia
+SHA i powtarza bramkę. Po squashu na `develop` `delete_branch_on_merge` kasuje gałąź
+roboczą. Chronione `develop`, `release` i `main` zostają.
 
 ## Dlaczego ta technologia
 
@@ -241,22 +262,21 @@ temu `feat(shared):` nie zostanie pomylone z `feat(news):`, a zmiana kernela nie
 nazwy komponentu, którego nie ma na liście tagów. Promocja `chore: promote to release`
 zakresu nie potrzebuje. Poszczególne `feat` i `fix` zostały już zapisane na `develop`.
 
-### Squash jako jedyne scalenie
+### Squash przy wejściu na develop
 
-Zestaw reguł na `develop`, `release` i `main` dopuszcza wyłącznie squash. Pole
-`allowed_merge_methods` zawiera jedną wartość: `squash`. Commit na gałęzi docelowej dostaje
-tytuł pull requestu. Treść commitów z gałęzi roboczej nie staje się osobnymi commitami na
-`develop`. Dla rewizji artykułu znaczy to jedną linijkę
-`feat(news): publish article revision` w historii, z której numer `07` umie odczytać zakres
-`news`.
+Ruleset `develop` dopuszcza wyłącznie squash. Pole `allowed_merge_methods` zawiera jedną
+wartość: `squash`. Commit na `develop` dostaje tytuł pull requestu. Treść commitów z gałęzi
+roboczej nie staje się osobnymi commitami na `develop`. Dla rewizji artykułu znaczy to jedną
+linijkę `feat(news): publish article revision` w historii, z której numer `07` umie odczytać
+zakres `news`.
 
-Merge commit odpadł. Na długiej gałęzi zostaje wtedy drugi opis, często domyślne „Merge pull
-request”, inne niż tytuł. Wydanie nie wie, który tekst czytać. Rewizja artykułu miałaby w
-historii i tytuł z zakresem, i drugi commit bez zakresu. release-please mogłoby przypisać
-zmianę do złej linii albo do żadnej. Rebase z zachowaniem serii commitów z gałęzi roboczej
-odpadł z tego samego powodu. [07-wersje.md](07-wersje.md) ma dostać jedną linijkę na jedną
-zmianę wpuszczoną na `develop`. Seria „wip”, „poprawka”, „już naprawdę” z gałęzi roboczej
-nie jest tą linijką.
+Merge commit przy wejściu na `develop` odpadł. Na długiej gałęzi zostaje wtedy drugi opis,
+często domyślne „Merge pull request”, inne niż tytuł. Wydanie nie wie, który tekst czytać.
+Rewizja artykułu miałaby w historii i tytuł z zakresem, i drugi commit bez zakresu.
+release-please mogłoby przypisać zmianę do złej linii albo do żadnej. Rebase jako metoda
+scalenia na `develop`, z zachowaniem serii commitów z gałęzi roboczej, odpadł z tego samego
+powodu. [07-wersje.md](07-wersje.md) ma dostać jedną linijkę na jedną zmianę wpuszczoną na
+`develop`. Seria „wip”, „poprawka”, „już naprawdę” z gałęzi roboczej nie jest tą linijką.
 
 Koszt, który zostaje, jest utratą drobnej historii wewnątrz gałęzi roboczej w momencie
 scalenia. Gałąź roboczą wolno force-pushować, dopóki nie jest chroniona. Trzy długie gałęzie
@@ -266,20 +286,59 @@ Reguła `deletion` jest włączona z tego samego powodu: skasowanie `develop` ka
 na której stoją wersje. Gałąź robocza po squashu znika osobnym ustawieniem repozytorium, nie
 przez zdjęcie ochrony z długiej gałęzi.
 
-Pull request promocji, `develop` → `release` oraz `release` → `main`, też jest squashem.
-Jego tytuł nadal musi przejść `pr-title`. Może to być `chore: promote to release`, bez
-zakresu. Poszczególne `feat` i `fix` żyją jako commity na `develop`. Pliki wersji niosą je
-dalej, gdy squash promocji sklei kilka commitów w jeden. To jest opisane w
-[07-wersje.md](07-wersje.md) i nie jest liczone w tym numerze. Gdyby promocja szła merge
-commitem, na `main` zostałaby para opisów, a job tagu nie wiedziałby, czy czytać tytuł
-promocji, czy tytuły schowane w rodzicach commita.
+### Merge commit promocji
 
-Jedna metoda na trzech gałęziach jest też warunkiem syncu. Trzy pliki JSON mają to samo
-ograniczenie metody. Suchy przebieg `jq` sprawdza, że `allowed_merge_methods` jest równe
-liście z jednym elementem `squash`. Rozjazd jednego pliku, na przykład zostawienie `merge`
-na `main`, wpuściłby na tag historię o innym kształcie niż historia na `develop`. Numer `07`
-czyta obie. Różna metoda scalenia na końcu drogi unieważnia umowę „jedna linijka, jeden
-zakres”.
+Pull request promocji, `develop` → `release` oraz `release` → `main`, jest merge commitem.
+W `release.json` i `main.json` pole `allowed_merge_methods` zawiera jedną wartość: `merge`.
+Tytuł nadal musi przejść `pr-title`. Może to być `chore: promote to release`, bez zakresu.
+Temat merge commita jest tym tytułem. Drugi rodzic jest czubkiem źródła: przy promocji na
+`release` jest to czubek `develop`, przy promocji na `main` czubek `release`. Poszczególne
+`feat` i `fix` żyją jako commity na `develop`. Pliki wersji niosą je dalej. Job tagu czyta
+te pliki, nie tytuł promocji i nie tytuły schowane w rodzicach. To jest opisane w
+[07-wersje.md](07-wersje.md) i nie jest liczone w tym numerze.
+
+Squash promocji odpadł. Zapisuje na celu jeden nowy commit, którego rodzicem jest
+dotychczasowy czubek celu, a nie czubek źródła. Następny pull request `develop` → `release`
+liczy wspólnego przodka sprzed tego squasha. Pliki dodane na `develop` i powtórzone
+squashem na `release` wracają jako konflikt dodania po obu stronach. Ta sama para powtarza
+się przy `release` → `main`, gdy squash promocji rozjedzie te dwie gałęzie. Rebase
+`develop`, `release` albo `main` odpadł razem ze squashem promocji. Reguła
+`non_fast_forward` zostaje. Przepisanie `develop` ruszyłoby commity, z których numer `07`
+już policzył pliki wersji.
+
+Koszt, który zostaje, jest merge commitem na `release` i na `main`. Historia celu zawiera
+commity źródła jako przodków oraz jeden commit o tytule promocji. Kierunek zostaje jeden:
+`release` nie wraca na `develop`. Świeżość względem celu,
+`strict_required_status_checks_policy`, jest wyłączona na `release` i na `main`. Merge
+commit żyje tylko na gałęzi docelowej. Włączona świeżość żądałaby, żeby `develop` zawierał
+ten commit, czyli wciągnięcia `release` z powrotem. Checki promocji i tak lecą na aktualnym
+SHA głowy. Nowy squash na `develop` zmienia głowę pull requestu `develop` → `release` i
+powtarza bramkę środka.
+
+Suchy przebieg `jq` sprawdza metody osobno. `develop.json` ma `allowed_merge_methods` równe
+liście z jednym elementem `squash`. `release.json` i `main.json` mają listę z jednym
+elementem `merge`. Zostawienie `squash` na `release` wpuściłoby na środek historię, której
+następna promocja nie umie scalić bez konfliktu na tych samych plikach.
+
+### Rebase gałęzi roboczej na develop
+
+Gałąź robocza, która została w tyle za `develop`, dostaje rebase na `origin/develop` i
+force-push. Force-push tej gałęzi jest dozwolony do scalenia. Po rebase `merge-base` głowy
+z `origin/main` zostaje przodkiem `origin/develop`, o ile gałąź wyszła z `develop` i nie
+wciągnęła `main`. `strict_required_status_checks_policy` na `develop` wymaga, żeby głowa
+niosła aktualny cel. Rebase spełnia ten warunek bez merge commita na gałęzi roboczej.
+Checki `branch-name` i `pr-title` raportują się na nowym SHA.
+
+Scalenie `main` albo `release` do gałęzi roboczej odpadło. `merge-base` głowy z
+`origin/main` staje się wtedy commitem z `main`, którego nie ma w historii `develop`.
+`check-branch-name.sh` kończy się kodem `1`, choć prefiks jest poprawny. Drzewo `main` po
+promocji jest już w `develop` albo jest od niego starsze. Dociągnięcie `main` z powrotem
+nie wnosi plików, a psuje zamek. Naprawa to zdjęcie tego scalenia i rebase na
+`origin/develop`.
+
+Rebase długich gałęzi zostaje poza tą ścieżką. Dotyczy go zakaz `non_fast_forward` opisany
+przy merge commicie promocji. Tu rebase dotyczy tylko gałęzi z prefiksem, zanim zniknie po
+squashu na `develop`.
 
 ### Ruleset w gitcie
 
@@ -292,9 +351,11 @@ Plik w gitcie pokazuje ją przy każdym `git diff`.
 Wyłącznie klasyczna ochrona gałęzi trzymana w interfejsie odpadła. Nie ma jej w diffie, więc
 pull request nie pokazuje, że wymagany check się zmienił. Trzymanie reguł tylko w prozie
 tego pliku, bez JSON, też odpadło. Job nie umie zdiffować zdania. `schema.json` jest
-wycinkiem pól, którego pilnuje suchy przebieg `jq`. Brak `squash` albo brak nazwy checka
-widać lokalnie, zanim ktokolwiek uruchomi sync. Pełnego schematu wszystkich możliwych reguł
-GitHuba ten wycinek nie kopiuje. Kopiuje pola, które ten numer ustawia.
+wycinkiem pól wspólnych trzech gałęzi. Metoda scalenia i świeżość względem celu żyją w
+plikach `develop.json`, `release.json` i `main.json`, bo na `develop` są inne niż na
+`release` i `main`. Brak nazwy checka widać lokalnie, zanim ktokolwiek uruchomi sync.
+Pełnego schematu wszystkich możliwych reguł GitHuba ten wycinek nie kopiuje. Kopiuje pola,
+które ten numer ustawia i które są takie same na trzech gałęziach.
 
 Koszt zostaje przy syncu na maszynie osoby z uprawnieniem admina. Po zmianie JSON trzeba
 uruchomić `sync-rulesets.sh` lokalnie. Job CI nie woła API reguł, bo token administracyjny
@@ -313,11 +374,13 @@ ustawiony osobno, ma być dokładnie tekstem z JSON. Ruleset porównuje ten teks
 kroku.
 
 Liczba wymaganych recenzji zostaje `0`. Produkt utrzymuje jedna osoba. Bramką jest check,
-nie druga para oczu. Włączenie recenzji „na zapas” zablokowałoby każdy squash, łącznie z
+nie druga para oczu. Włączenie recenzji „na zapas” zablokowałoby każde scalenie, łącznie z
 promocją `chore: promote to release`, bo nie ma kto zatwierdzić.
-`strict_required_status_checks_policy` zostaje włączone obok tej liczby. Świeżość gałęzi
-względem celu jest osobnym warunkiem od liczby recenzji. Stary zielony przebieg `pr-title`
-nie zastępuje przebiegu na aktualnej głowie.
+`strict_required_status_checks_policy` zostaje włączone na `develop`, obok tej liczby.
+Świeżość gałęzi roboczej względem `develop` jest osobnym warunkiem od liczby recenzji.
+Stary zielony przebieg `pr-title` nie zastępuje przebiegu na aktualnej głowie. Na
+`release` i `main` świeżość względem celu jest wyłączona, bo merge commit promocji nie
+wraca do źródła.
 
 Ustawienie repozytorium `delete_branch_on_merge` ustawia ten sam skrypt sync na `true`.
 Osobnego kliknięcia w ustawieniach nie zostawia się jako jedynego śladu. Chronione
@@ -339,7 +402,7 @@ ma czego przepisywać.
 | `.github/rulesets/release.json` | ochrona `release` |
 | `.github/rulesets/main.json` | ochrona `main` |
 | `.github/scripts/sync-rulesets.sh` | wysłanie JSON do API, tylko lokalnie |
-| `.github/rulesets/schema.json` | wycinek pól, którego pilnuje suchy przebieg |
+| `.github/rulesets/schema.json` | wycinek pól wspólnych trzech gałęzi |
 
 Workflow nasłuchuje `pull_request` na `develop`, `release` i `main`. Nie używa `paths`. Nie
 używa `pull_request_target`. `permissions` na poziomie pliku to puste, a job dostaje
@@ -370,12 +433,15 @@ Pola, które mają być w każdym z trzech JSON:
 | `conditions.ref_name.include` | jedna gałąź: `refs/heads/develop`, `refs/heads/release` albo `refs/heads/main` |
 | reguła `deletion` | włączona |
 | reguła `non_fast_forward` | włączona |
-| reguła `pull_request` | wymagany pull request, `allowed_merge_methods` równe wyłącznie `squash` |
+| reguła `pull_request` | wymagany pull request; metoda scalenia zależy od gałęzi |
 | reguła `required_status_checks` | na starcie tego numeru: `branch-name` i `pr-title` |
 
-`required_approving_review_count` jest `0`. `strict_required_status_checks_policy` jest
-włączone. Gałąź w pull requeście jest aktualna względem celu, inaczej check z poprzedniego
-przebiegu nie wystarcza. Jeden plik JSON obejmuje jedną długą gałąź. Wpisanie trzech nazw do
+`required_approving_review_count` jest `0`. Na `develop` `allowed_merge_methods` jest
+listą z jednym elementem `squash`, a `strict_required_status_checks_policy` jest włączone.
+Gałąź robocza w pull requeście niesie aktualny `develop`. Inaczej check z poprzedniego
+przebiegu nie wystarcza. Na `release` i `main` `allowed_merge_methods` jest listą z jednym
+elementem `merge`, a świeżość względem celu jest wyłączona. Jeden plik JSON obejmuje jedną
+długą gałąź. Wpisanie trzech nazw do
 `include` w jednym pliku nałożyłoby ten sam zestaw checków na wszystkie głowy i zabrało
 numerom `02`–`07` możliwość dokładania checków tylko na `release` albo tylko na `main`.
 
@@ -446,10 +512,12 @@ lista checków ma dwie nazwy: `branch-name`, `pr-title`. JSON rulesetu nie trzym
 Kolejne nazwy dopiszą następne numery w swoich scaleniach. Nie dopisuj `build` ani
 `gitleaks`.
 
-`required_approving_review_count` ustaw na `0`. `strict_required_status_checks_policy`
-włącz. `allowed_merge_methods` ustaw na listę zawierającą wyłącznie `squash`. Reguły
-`deletion` i `non_fast_forward` włącz. Każdy plik obejmuje jedną gałąź w
-`conditions.ref_name.include`.
+`required_approving_review_count` ustaw na `0`. W `develop.json` włącz
+`strict_required_status_checks_policy` i ustaw `allowed_merge_methods` na listę
+zawierającą wyłącznie `squash`. W `release.json` i `main.json` wyłącz
+`strict_required_status_checks_policy` i ustaw `allowed_merge_methods` na listę
+zawierającą wyłącznie `merge`. Reguły `deletion` i `non_fast_forward` włącz na każdej
+z trzech gałęzi. Każdy plik obejmuje jedną gałąź w `conditions.ref_name.include`.
 
 ### 5. Dodać sync
 
@@ -487,7 +555,7 @@ tylko checków, które mają workflow w tym samym drzewie.
 | `pr-title.yml` | GitHub na pull request | to samo dla tytułu |
 | `develop.json`, `release.json`, `main.json` | `sync-rulesets.sh` | ochrona gałęzi bez klikania |
 | `sync-rulesets.sh` | osoba z uprawnieniem admina | przenosi JSON do GitHuba |
-| `schema.json` | suchy przebieg `jq` | łapie brak `squash` albo brak nazwy checka |
+| `schema.json` | suchy przegląd pól wspólnych | metoda i świeżość zostają w trzech plikach gałęzi |
 
 Job nie woła drugiego joba. Ruleset woła oba przez wymaganie statusu. Skrypt sync nie
 uczestniczy w pull requeście. Czerwony `branch-name` przy `feature/lesson_markdown`
@@ -616,20 +684,29 @@ JSON rulesetu:
 
 ```bash
 jq -e '.rules[] | select(.type=="pull_request") | .parameters.allowed_merge_methods == ["squash"]' \
-  .github/rulesets/develop.json \
+  .github/rulesets/develop.json
+jq -e '.rules[] | select(.type=="pull_request") | .parameters.allowed_merge_methods == ["merge"]' \
+  .github/rulesets/release.json \
+  .github/rulesets/main.json
+jq -e '.rules[] | select(.type=="required_status_checks") | .parameters.strict_required_status_checks_policy == true' \
+  .github/rulesets/develop.json
+jq -e '.rules[] | select(.type=="required_status_checks") | .parameters.strict_required_status_checks_policy == false' \
   .github/rulesets/release.json \
   .github/rulesets/main.json
 ```
 
-Polecenie ma wypisać `true` trzy razy i skończyć się kodem `0`.
+Pierwsze polecenie wypisuje `true` raz. Drugie wypisuje `true` dwa razy. Trzecie wypisuje
+`true` raz. Czwarte wypisuje `true` dwa razy. Każde kończy się kodem `0`. `squash` na
+`release` albo `merge` na `develop` kończy suche sprawdzenie kodem `1`.
 
 `actionlint` i oba skrypty da się odpalić, zanim ruleset zostanie zsynchronizowany. Sync
 sprawdź na repozytorium testowym albo po wdrożeniu, poleceniem
 `gh api repos/{owner}/{repo}/rulesets`, i porównaj `allowed_merge_methods` z plikiem. Job w
-CI nie dostaje `--skip-ancestry`. Gałąź wycięta z `main` pada kodem `1` na kroku przodków,
-także wtedy, gdy nazwa jest `feature/lesson-markdown`, a cel jest `develop`. Suchy przebieg
-z przełącznikiem tego kroku nie wykonuje. To jest jeden powód padnięcia, osobny od
-podkreślenia w nazwie.
+CI nie dostaje `--skip-ancestry`. Gałąź wycięta z `main`, albo gałąź robocza, która
+wciągnęła `main`, pada kodem `1` na kroku przodków, także wtedy, gdy nazwa jest
+`feature/lesson-markdown`, a cel jest `develop`. Naprawa tej drugiej jest rebasem na
+`origin/develop`. Suchy przebieg z przełącznikiem tego kroku nie wykonuje. To jest jeden
+powód padnięcia, osobny od podkreślenia w nazwie.
 
 ## Zasady
 
@@ -641,13 +718,16 @@ podkreślenia w nazwie.
 - Tytuł jest jedną linią Conventional Commits. `feat` i `fix` mają zakres z listy dziesięciu
   nazw.
 - Wzorzec tytułu, który przechodzi, to `feat(news): publish article revision`.
-- Scalenie jest squashem. Merge commit i rebase nie są metodami tych trzech gałęzi.
+- Scalenie na `develop` jest squashem. Promocja `develop` → `release` i `release` → `main`
+  jest merge commitem. Rebase nie jest metodą trzech długich gałęzi.
+- Gałąź robocza, która została w tyle za `develop`, jest rebase'owana na `origin/develop`.
+  Scalenie `main` albo `release` do tej gałęzi pada w `branch-name`.
 - Wymagane checki tego numeru to `branch-name` i `pr-title`. Oba raportuje workflow na
   `ubuntu-latest`.
 - Force-push długiej gałęzi jest wyłączony. Force-push gałęzi roboczej jest dozwolony.
 - `required_approving_review_count` jest `0`. Recenzja drugiej osoby nie jest wymagana.
-- `strict_required_status_checks_policy` jest włączone. Check z poprzedniego przebiegu nie
-  wystarcza.
+- `strict_required_status_checks_policy` jest włączone na `develop` i wyłączone na
+  `release` oraz `main`. Check z poprzedniego przebiegu nie wystarcza na gałęzi roboczej.
 - Sync rulesetu zostaje na maszynie osoby z uprawnieniem admina. W YAML nie ma tokenu.
 - `fetch-depth` joba `branch-name` jest `0`. Job nie używa `pull_request_target` ani
   `paths`.
@@ -679,9 +759,11 @@ podkreślenia w nazwie.
   interfejsie. Diff pull requestu ma pokazać zmianę checka.
 - [Available rules for rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets).
   Wiążące są reguły `pull_request`, `required_status_checks`, `deletion` i
-  `non_fast_forward`. Dotyczy wyłącznego `squash`, listy `branch-name` i `pr-title`, zakazu
-  kasowania długiej gałęzi i zakazu force-pusha. Ze źródła nie bierzemy wymaganej liczby
-  recenzji większej niż zero. `required_approving_review_count` zostaje `0`.
+  `non_fast_forward`. Dotyczy `squash` na `develop`, `merge` na `release` i `main`, listy
+  `branch-name` i `pr-title`, zakazu kasowania długiej gałęzi i zakazu force-pusha. Ze
+  źródła nie bierzemy wymaganej liczby recenzji większej niż zero.
+  `required_approving_review_count` zostaje `0`. Ze źródła nie bierzemy jednej metody
+  scalenia na trzech gałęziach.
 - [REST: create a repository ruleset](https://docs.github.com/en/rest/repos/rules#create-a-repository-ruleset).
   Wiążące jest wywołanie `POST` na `/repos/{owner}/{repo}/rulesets`, gdy rulesetu o tej
   nazwie jeszcze nie ma. Dotyczy `sync-rulesets.sh` uruchamianego lokalnie przez osobę z
@@ -724,13 +806,15 @@ podkreślenia w nazwie.
   uprawnienia do rulesetów na jobie. Sync zostaje poza CI.
 - [Require status checks before merging](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches#require-status-checks-before-merging).
   Wiążące jest to, że wymagany check musi zaraportować sukces na aktualnej głowie. Dotyczy
-  `branch-name`, `pr-title` i włączonego `strict_required_status_checks_policy`. Ze źródła
-  nie bierzemy klasycznej ochrony gałęzi wyklikanej w ustawieniach ani wymaganej recenzji z
-  tej samej strony. Źródłem jest JSON rulesetu.
+  `branch-name`, `pr-title` i włączonego `strict_required_status_checks_policy` na
+  `develop`. Ze źródła nie bierzemy tej świeżości na `release` i `main`: merge commit
+  promocji żyje tylko na celu, a włączony warunek żądałby powrotu `release` na `develop`.
+  Ze źródła nie bierzemy klasycznej ochrony gałęzi wyklikanej w ustawieniach ani wymaganej
+  recenzji z tej samej strony. Źródłem jest JSON rulesetu.
 - [Troubleshooting required status checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
   Wiążące jest to, że check ma przejść na najnowszym SHA, oraz że workflow pominięty filtrem
   ścieżek zostaje w stanie oczekiwania i blokuje scalenie. Dotyczy zakazu `paths` i wymogu
-  świeżego przebiegu po aktualizacji gałęzi względem celu. Ze źródła nie bierzemy
+  świeżego przebiegu po rebase gałęzi roboczej na `develop`. Ze źródła nie bierzemy
   traktowania pominiętego joba jako wystarczającego sukcesu tych dwóch checków. Oba
   workflowy mają się wykonać.
 - [Skipping workflow runs](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs).
@@ -746,9 +830,16 @@ podkreślenia w nazwie.
   `feature/lesson-markdown`, a trzy długie gałęzie zostają.
 - [About pull request merges](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges).
   Wiążące jest to, że squash zapisuje na gałęzi docelowej jeden commit o tytule pull
-  requestu. Dotyczy `allowed_merge_methods` równego wyłącznie `squash` na trzech długich
-  gałęziach. Ze źródła nie bierzemy merge commita ani rebase jako drugiej dozwolonej metody.
-  Numer `07` ma dostać jedną linijkę z zakresem.
+  requestu, a merge commit ma dwóch rodziców. Squash dotyczy `allowed_merge_methods`
+  równego wyłącznie `squash` na `develop`. Merge commit dotyczy listy `merge` na `release`
+  i `main`: drugi rodzic jest czubkiem źródła, więc następna promocja niesie tylko nowe
+  commity. Ze źródła nie bierzemy rebase jako metody scalenia trzech długich gałęzi ani
+  squasha promocji. Numer `07` ma dostać jedną linijkę z zakresem na `develop`.
+- [Keeping your pull request in sync with the base branch](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/keeping-your-pull-request-in-sync-with-the-base-branch).
+  Wiążące jest odświeżenie głowy pull requestu rebasem na gałąź docelową. Dotyczy gałęzi
+  roboczej, która została w tyle za `develop`: rebase na `origin/develop` i force-push, zanim
+  squash zapisze tytuł na `develop`. Ze źródła nie bierzemy scalenia celu do głowy merge
+  commitem ani dociągnięcia `main` do gałęzi roboczej. Takie scalenie psuje zamek przodków.
 - [Checkout action](https://github.com/actions/checkout). Wiążące jest `fetch-depth: 0`,
   które pobiera historię potrzebną do `merge-base`. Dotyczy checkoutu w jobie `branch-name`.
   Ze źródła nie bierzemy domyślnej płytkiej głębokości dla tego joba. Job `pr-title` pełnej
@@ -776,8 +867,9 @@ podkreślenia w nazwie.
   `feat: publish article revision` kodem `1`.
 - `docs(cicd): opis bramek` kończy się kodem `1`. `chore: promote to release` kończy się
   kodem `0`.
-- `jq` potwierdza, że jedyną metodą scalenia w trzech JSON-ach jest `squash`, wypisuje
-  `true` trzy razy i kończy się kodem `0`.
+- `jq` potwierdza `squash` w `develop.json` oraz `merge` w `release.json` i `main.json`.
+  Świeżość względem celu jest włączona tylko w `develop.json`. Każde z czterech wywołań
+  kończy się kodem `0`.
 - Po syncu `gh api repos/{owner}/{repo}/rulesets` pokazuje te same dwie nazwy checków i te
   same trzy gałęzie. Do czasu syncu pliki w gitcie są źródłem, które następny sync wgra.
 - W JSON tego numeru nie ma checków, których workflow jeszcze nie raportuje.
