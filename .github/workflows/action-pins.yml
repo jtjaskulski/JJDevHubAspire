@@ -1,0 +1,36 @@
+name: action-pins
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release
+      - main
+  push:
+    branches:
+      - develop
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions: {}
+
+jobs:
+  action-pins:
+    name: action-pins
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.sha }}
+
+      - name: Check action pins
+        run: .github/scripts/check-action-pins.sh .github/workflows
+
+      - name: Check runners
+        run: .github/scripts/check-runners.sh .github/workflows

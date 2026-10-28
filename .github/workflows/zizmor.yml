@@ -1,0 +1,53 @@
+name: zizmor
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release
+      - main
+  push:
+    branches:
+      - develop
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions: {}
+
+jobs:
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.sha }}
+
+      - name: Install zizmor
+        run: |
+          set -euo pipefail
+          bindir="${RUNNER_TEMP}/supply-chain"
+          mkdir -p "$bindir"
+          .github/scripts/install-pinned-tool.sh zizmor "$bindir"
+          echo "$bindir" >> "$GITHUB_PATH"
+
+      - name: Audit workflows
+        run: |
+          set -euo pipefail
+          args=(.github/workflows)
+          if [[ -d .github/actions ]]; then
+            args+=(.github/actions)
+          fi
+          set +e
+          zizmor --offline "${args[@]}"
+          code=$?
+          set -e
+          if [[ $code -ne 0 ]]; then
+            exit 1
+          fi

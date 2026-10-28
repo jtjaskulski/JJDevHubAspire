@@ -4,8 +4,8 @@
 następny: [06. Łańcuch dostaw](06-lancuch-dostaw.md)
 
 Ten numer stawia bramkę jakości SonarQube jako job `sonarqube`. Job jest wymagany na pull
-request do `release` i do `main`, od pierwszego takiego pull requestu, także zanim powstanie
-usługa. Poprzedni numer, [zależności i obrazy](04-zaleznosci-i-obrazy.md), pilnuje CVE
+request do `develop`, `release` i `main`, od pierwszego takiego pull requestu, także zanim
+powstanie usługa. Poprzedni numer, [zależności i obrazy](04-zaleznosci-i-obrazy.md), pilnuje CVE
 bibliotek i obrazów. Następny, [łańcuch dostaw](06-lancuch-dostaw.md), przypina akcje i
 zatrzymuje sekret w drzewie. Tutaj serwer na czas developmentu to jeden kontener Community
 Build. Docelowe miejsce tego kontenera na maszynie opisuje [08-proxmox.md](08-proxmox.md).
@@ -17,20 +17,20 @@ nowych podatności krytycznych, przeglądu hotspotów bezpieczeństwa, gęstośc
 pokrycia nowego kodu. Agregatu `Article`, konta i roli ten plik nie definiuje. Mierzy kod,
 który kiedyś te typy zapisze, i workflow, który powstaje wcześniej.
 
-Scenariusz, który bez tej bramki przechodzi cicho, zaczyna się od promocji News. Na
-`develop` wszedł `feat(news): publish article revision`. Test jednostkowy sprawdza, że slug
-artykułu da się zapisać. Gałąź, która odrzuca pusty tytuł, nie jest wykonana. Pokrycie
-nowego kodu zostaje przy czterdziestu procentach. Obok, w Cv, ktoś wkleił dwadzieścia linii
-tej samej kontroli sluga, żeby strona CV weryfikowała tak samo. W helperze testu Identity
-został ciąg, który skaner oznacza jako hotspot bezpieczeństwa, i nikt go nie przejrzał.
-CodeQL nie jest tu po to, żeby zatrzymać ten hotspot, tę kopię i ten brak pokrycia. Bez
-joba `sonarqube` pull request do `release` jest zielony. Test z [02-bramki.md](02-bramki.md)
-mówi, że zachowanie jest prawdziwe. Nie mówi, że nowy kod jest pokryty, że nie doszła kopia
-i że nie został otwarty blocker. `release` przyjmuje dług, a [07-wersje.md](07-wersje.md)
-później nadaje mu tag `news-v0.2.0`. Tag i dług jadą razem.
+Scenariusz, który bez tej bramki przechodzi cicho, zaczyna się od pierwszego pull requestu
+News na `develop`. Tytuł to `feat(news): publish article revision`. Test jednostkowy
+sprawdza, że slug artykułu da się zapisać. Gałąź, która odrzuca pusty tytuł, nie jest
+wykonana. Pokrycie nowego kodu zostaje przy czterdziestu procentach. Obok, w Cv, ktoś
+wkleił dwadzieścia linii tej samej kontroli sluga, żeby strona CV weryfikowała tak samo. W
+helperze testu Identity został ciąg, który skaner oznacza jako hotspot bezpieczeństwa, i
+nikt go nie przejrzał. CodeQL nie jest tu po to, żeby zatrzymać ten hotspot, tę kopię i ten
+brak pokrycia. Bez joba `sonarqube` pull request do `develop` jest zielony. Test z
+[02-bramki.md](02-bramki.md) mówi, że zachowanie jest prawdziwe. Nie mówi, że nowy kod jest
+pokryty, że nie doszła kopia i że nie został otwarty blocker. `develop` przyjmuje dług, a
+[07-wersje.md](07-wersje.md) później nadaje mu tag `news-v0.2.0`. Tag i dług jadą razem.
 
 Drugi scenariusz jest wcześniejszy niż pierwsza usługa. Repozytorium nie ma jeszcze katalogu
-`src`. Pierwszy pull request do `release` niesie workflow i dokumentację promocji. Gdyby job
+`src`. Pierwszy pull request do `develop` niesie workflow i dokumentację. Gdyby job
 znikał, bo nie ma czego analizować, ruleset nie zobaczyłby checka `sonarqube` i promocja
 padłaby brakiem checka, a nie werdyktem jakości. Job ma wtedy skończyć się sukcesem i logiem
 `no material for sonarqube`. Check zostaje w rulesecie. Zielony check przed pierwszym
@@ -55,8 +55,8 @@ starcie poda nie miałby za sobą tej bramki. Przeniesienie jest zmianą adresu.
 
 Test z [02-bramki.md](02-bramki.md) mówi, że zachowanie jest prawdziwe. Nie mówi, że nowy
 kod jest pokryty, że nie doszła kopia na dwadzieścia linii i że nie został otwarty blocker.
-Bez bramki jakości `release` przyjmuje dług techniczny, który później miesza się z tagiem.
-News, Identity, Learning, Cv i Contact mają osobne tagi. Dług wpuszczony na `release`
+Bez bramki jakości `develop` przyjmuje dług techniczny, który później miesza się z tagiem.
+News, Identity, Learning, Cv i Contact mają osobne tagi. Dług wpuszczony na `develop`
 dostaje numer tego komponentu, którego ścieżka drgnęła, i zostaje w historii obrazu.
 Cofnięcie progu po tagu nie cofa tagu.
 
@@ -79,15 +79,14 @@ Warunki, wszystkie na nowym kodzie:
 Gdy analizator nie widzi nowych linii do pokrycia, warunek pokrycia jest spełniony. Tak jest
 w repozytorium przed pierwszym plikiem źródłowym. Job wtedy kończy się sukcesem i logiem
 `no material for sonarqube`. Ruleset i tak widzi check `sonarqube`. Puste drzewo `src` nie
-jest powodem, żeby check zniknął z `release.json` albo z `main.json`. Brak checka i zielony
-check z jawnym logiem to dwa różne stany. Ten numer wybiera drugi.
+jest powodem, żeby check zniknął z `develop.json`, `release.json` albo z `main.json`. Brak
+checka i zielony check z jawnym logiem to dwa różne stany. Ten numer wybiera drugi.
 
-Gdy linie już są, osiemdziesiąt procent pokrycia nowego kodu obowiązuje. Test jednostkowy na
-`develop` może przejść przy niskim pokryciu. `release` już nie. To jest świadomy podział: na
-`develop` da się zintegrować szkic, na `release` szkic bez pokrycia nie przechodzi. Szkic
-lekcji w Learning może przez kilka pull requestów funkcji żyć na `develop` z testem, który
-sprawdza jedną ścieżkę. Promocja do `release` powtarza pomiar. Czterdzieści procent nowego
-kodu zostaje czerwonym skanerem, zanim powstanie tag `learning-v0.2.0`.
+Gdy linie już są, osiemdziesiąt procent pokrycia nowego kodu obowiązuje już na `develop`.
+Test jednostkowy może przejść przy niskim pokryciu. `sonarqube` już nie. Szkic lekcji w
+Learning nie wchodzi na `develop` z testem, który sprawdza jedną ścieżkę i zostawia
+czterdzieści procent nowego kodu. Czerwony skaner jest na pierwszym pull requestcie, zanim
+powstanie tag `learning-v0.2.0`.
 
 Token serwera nie leży w gitcie. W YAML nie ma `secrets.SONAR_TOKEN` ani hasła. Na runnerze
 job sam podnosi kontener, ustawia hasło administratora na wartość wylosowaną w pamięci
@@ -103,11 +102,9 @@ z dokumentacji produktu. Obraz serwera jest przypięty do skrótu, nie do tagu `
 Podbicie obrazu jest zmianą skrótu w compose i w manifeście z numeru `08`, zwykłym pull
 requestem, a nie cichą podmianą tagu na Docker Hubie między dwoma promocjami.
 
-Podział `develop` i `release` dotyczy też tego, co ruleset w ogóle wymaga. Check `sonarqube`
-dopisuje się do `release.json` i `main.json`. Do `develop.json` się go nie dopisuje. Na
-`develop` zostają test, format i checki z sąsiednich numerów. Pokrycie na `develop` nie
-blokuje. Pokrycie na `release` blokuje. Job `unit-tests` nie woła Sonara i nie publikuje
-raportu pokrycia między workflowami. Dlatego job `sonarqube` zbiera pokrycie sam, tym samym
+Check `sonarqube` dopisuje się do `develop.json`, `release.json` i `main.json`. Pokrycie
+blokuje na trzech gałęziach. Job `unit-tests` nie woła Sonara i nie publikuje raportu
+pokrycia między workflowami. Dlatego job `sonarqube` zbiera pokrycie sam, tym samym
 filtrem.
 
 Front wejdzie tym samym progiem. JavaScript i TypeScript w `src/clients` należą do projektu
@@ -126,18 +123,18 @@ na runnerze, i na czas developmentu na maszynie osoby. Usługa .NET go nie refer
 pakietów aplikacji zostają przy dokumentacji tych pakietów. Skrót obrazu jest w compose. Tag
 `latest` nie jest.
 
-Problem, który ten kontener zamyka, widać na promocji wycinka, który ma dostać tag. Blocker
+Problem, który ten kontener zamyka, widać na pierwszym pull requestcie na `develop`. Blocker
 na nowym kodzie News, krytyczna podatność w nowym kodzie Identity, nieprzejrzany hotspot,
 kopia sluga między News a Cv powyżej trzech procent zduplikowanych linii i pokrycie nowego
 kodu poniżej osiemdziesięciu procent mają paść skanerem. CodeQL przy progu `7.0` zostaje
 przy przepływie danych. Nie liczy gęstości kopii i nie liczy pokrycia linii, których test
-nie dotknął. Sam test jednostkowy na `develop` też tego nie liczy. Bez kontenera i bez
-bramki `release` nie ma gdzie odłożyć tych pięciu warunków.
+nie dotknął. Sam test jednostkowy też tego nie liczy. Bez kontenera i bez bramki
+`develop` nie ma gdzie odłożyć tych pięciu warunków.
 
 Świeży kontener na runnerze nie ma wczorajszego przebiegu. Cały analizowany wycinek jest dla
 tej instancji nowym kodem. To jest surowsze niż przyrost na długo żyjącym serwerze i jest
-akceptowalne na `release`: promowany wycinek ma sam spełnić bramkę. Na VM serwer będzie
-pamiętał historię. Warunki w JSON zostają te same. Zmienia się adres, nie próg. Historia na
+akceptowalne na `develop`: wycinek, który wchodzi squashem, ma sam spełnić bramkę. Na VM
+serwer będzie pamiętał historię. Warunki w JSON zostają te same. Zmienia się adres, nie próg. Historia na
 VM nie jest pretekstem, żeby na czas pustego dysku zdjąć check. Dopóki adresu z OpenBao nie
 ma, runner liczy werdykt u siebie.
 
@@ -149,17 +146,17 @@ skanera. Gwiazdka w interfejsie recenzji byłaby ozdobą. Ruleset czyta check, n
 
 Odpada SonarCloud jako jedyny serwer. Jest wygodny i dekoruje pull request, a wiąże werdykt
 z organizacją w usłudze i z jej planem. Ten produkt trzyma bramkę u siebie, najpierw na
-runnerze, potem na VM. Plan organizacji nie może być warunkiem scalenia `release`. Adres
+runnerze, potem na VM. Plan organizacji nie może być warunkiem scalenia. Adres
 obcej usługi nie wchodzi do `sonar.host.url` w pliku, który commitujemy. Adres dokleja
 workflow.
 
 Odpada też sam `dotnet format` w roli bramki jakości. Format jest już checkiem `format` na
 `develop`. Nie liczy pokrycia ani hotspotu. Zielony format i zielony test jednostkowy
 potrafią puścić kopię dwudziestu linii i nieprzejrzany hotspot. Dlatego format zostaje tam,
-gdzie jest, a ten numer dokłada osobny job na `release` i na `main`.
+gdzie jest, a ten numer dokłada osobny job na `develop`, `release` i `main`.
 
 Koszt jest świadomy. Community Build nie prowadzi analizy gałęzi i dekoracji pull requestu
-tak jak edycja płatna. Przebieg `release` ściąga obraz. Job ma `timeout-minutes: 40`. Osoba
+tak jak edycja płatna. Przebieg ściąga obraz. Job ma `timeout-minutes: 40`. Osoba
 nie dostaje komentarza przy linii w GitHubie z tego serwera. Dostaje czerwony albo zielony
 check. To wystarcza rulesetowi. Podbicie obrazu wymaga świadomej zmiany skrótu. `latest`
 między dwoma poniedziałkami potrafiłby zmienić reguły skanera bez pull requestu.
@@ -266,9 +263,9 @@ podmianie.
 ### Pokrycie z tego samego testu co bramka `develop`
 
 Skaner .NET dostaje raport pokrycia z `dotnet test` z filtrem jednostkowym, tym samym co job
-`unit-tests`: `Category!=Integration&Category!=Performance`. Na `release` ten test wykonuje
-się wewnątrz joba `sonarqube` jeszcze raz, z zbieraniem pokrycia, bo job `unit-tests` nie
-publikuje raportu między workflowami. Skaner .NET idzie między początkiem a końcem analizy,
+`unit-tests`: `Category!=Integration&Category!=Performance`. Na pull request ten test
+wykonuje się wewnątrz joba `sonarqube` jeszcze raz, z zbieraniem pokrycia, bo job
+`unit-tests` nie publikuje raportu między workflowami. Skaner .NET idzie między początkiem a końcem analizy,
 zgodnie z dokumentacją skanera dla tej wersji obrazu. Pokrycie z czerwonego testu nie jest
 wysyłane.
 
@@ -297,12 +294,12 @@ istnieje, brak `lcov` niczego nie blokuje. Telefon i web nie dostają drugiego J
 procent pokrycia co usługa.
 
 Odpada drugi, łagodniejszy próg dla frontu. Jeden JSON. Odpada też uznanie, że test na
-`develop` już „zaliczył pokrycie”, skoro workflow testu nie oddaje raportu. Job `unit-tests`
-zostaje przy filtrze i przy braku progu procentowego. Procent jest tutaj, na `release` i na
-`main`. Odpada wysłanie pokrycia, gdy filtr jednostkowy jest czerwony. Czerwony test jest
-wcześniejszą porażką niż czerwona bramka.
+`unit-tests` już „zaliczył pokrycie”, skoro workflow testu nie oddaje raportu. Job
+`unit-tests` zostaje przy filtrze i przy braku progu procentowego. Procent jest tutaj, na
+`develop`, `release` i `main`. Odpada wysłanie pokrycia, gdy filtr jednostkowy jest
+czerwony. Czerwony test jest wcześniejszą porażką niż czerwona bramka.
 
-Koszt: job `release` powtarza test jednostkowy. Trwa to tyle, co `unit-tests`, plus analiza.
+Koszt: job `sonarqube` powtarza test jednostkowy. Trwa to tyle, co `unit-tests`, plus analiza.
 Powtórzenie jest ceną za raport, którego sąsiedni workflow nie publikuje. Filtr zostaje ten
 sam, więc integracja i test wydajnościowy nie wchodzą do mianownika. Cecha
 `Category=Integration` albo `Category=Performance` na teście, który miał być jednostkowy,
@@ -349,14 +346,14 @@ montuje katalogu repozytorium do kontenera serwera. Wolumen trzyma dane serwera 
 
 Job: `runs-on: ubuntu-latest`, `permissions: contents: read`, `timeout-minutes: 40`,
 `persist-credentials: false`. Bez `pull_request_target`. Bez `paths`. Wyzwalacz:
-`pull_request` na `release` i `main`. Akcje checkout i ewentualny `setup-dotnet` są
-przypięte do pełnego SHA. Na `develop` tego workflow się nie wymaga. Promocja do `release`
-jest pierwszym miejscem, w którym check musi być zielony.
+`pull_request` na `develop`, `release` i `main`. Akcje checkout i ewentualny `setup-dotnet`
+są przypięte do pełnego SHA. Check musi być zielony już na pierwszym pull requestcie do
+`develop`.
 
-`release.json` i `main.json` zawierają nazwę checka `sonarqube`. `develop.json` jej nie
-zawiera. Sync rulesetów jest z numeru `01`. Ten numer tylko dopisuje nazwę w tym samym
-scaleniu, które dodaje workflow. Check bez workflow albo workflow bez checka zostawia
-promocję w stanie, którego ruleset nie umie nazwać.
+`develop.json`, `release.json` i `main.json` zawierają nazwę checka `sonarqube`. Sync
+rulesetów jest z numeru `01`. Ten numer tylko dopisuje nazwę w tym samym scaleniu, które
+dodaje workflow. Check bez workflow albo workflow bez checka zostawia scalenie w stanie,
+którego ruleset nie umie nazwać.
 
 ## Plan
 
@@ -400,8 +397,8 @@ Utwórz `sonarqube.yml`. Kroki:
    czerwoną komendą.
 
 Nie wołaj CodeQL z tego pliku. `runs-on: ubuntu-latest`. `permissions: contents: read`.
-`timeout-minutes: 40`. `persist-credentials: false`. Wyzwalacz `pull_request` na `release` i
-`main`, bez `paths` i bez `pull_request_target`.
+`timeout-minutes: 40`. `persist-credentials: false`. Wyzwalacz `pull_request` na `develop`,
+`release` i `main`, bez `paths` i bez `pull_request_target`.
 
 ### 5. Dodać compose lokalny
 
@@ -412,8 +409,7 @@ Powtórny start nie kasuje wolumenu.
 
 ### 6. Dopisać check
 
-W tym samym scaleniu dopisz `sonarqube` do `release.json` i `main.json`. Nie dopisuj go do
-`develop.json`.
+W tym samym scaleniu dopisz `sonarqube` do `develop.json`, `release.json` i `main.json`.
 
 ### 7. Zostawić przeniesienie na VM jako zmianę adresu
 
@@ -430,13 +426,12 @@ jako workflow, zostaje kontener na runnerze. Bramka się nie wyłącza „do cza
 | `sonar-project.properties` | skaner | klucz, wykluczenia, czekanie na bramkę |
 | `sonar-bootstrap.sh` | job CI i `sonar-local.sh` | ten sam projekt i ta sama bramka |
 | `sonar-material.sh` | job | pusty sukces przed kodem źródłowym |
-| `sonarqube.yml` | pull request na `release` i `main` | check `sonarqube` |
+| `sonarqube.yml` | pull request na `develop`, `release` i `main` | check `sonarqube` |
 | `compose.yml` | `sonar-local.sh` | jeden kontener deweloperski |
 | `sonar-local.sh` | osoba lokalnie | próg bez klikania w interfejsie |
-| `release.json`, `main.json` | sync z numeru `01` | check wymagany |
+| `develop.json`, `release.json`, `main.json` | sync z numeru `01` | check wymagany |
 
-Job `unit-tests` nie woła Sonara. Pokrycie na `develop` nie blokuje. Pokrycie na `release`
-blokuje.
+Job `unit-tests` nie woła Sonara. Pokrycie blokuje na `develop`, `release` i `main`.
 
 ## Testy
 
@@ -449,7 +444,7 @@ actionlint .github/workflows/sonarqube.yml
 Kod `0`.
 
 ```bash
-grep -nE 'self-hosted|pull_request_target|secrets\.|latest' .github/workflows/sonarqube.yml compose/sonarqube/compose.yml
+grep -nE 'self-hosted|pull_request_target|secrets\.|:latest' .github/workflows/sonarqube.yml compose/sonarqube/compose.yml
 ```
 
 Brak trafień. W compose jest skrót obrazu, nie tag `latest`.
@@ -481,9 +476,9 @@ Zła gałąź:
 echo $?
 ```
 
-Kod `1`. `feature/lesson-markdown` do `develop` daje kod `0`. Sonar na pull request do
-`develop` nie startuje. Startuje na promocji do `release`. Przed kodem źródłowym widać w
-logu `no material for sonarqube`, a ruleset ma zielony check `sonarqube`.
+Kod `1`. `feature/lesson-markdown` do `develop` daje kod `0`. Na takiej gałęzi, przed
+kodem źródłowym, w logu widać `no material for sonarqube`, a ruleset ma zielony check
+`sonarqube`. Niskie pokrycie nowego kodu kończy ten sam check kodem `1` już na `develop`.
 
 Gdy kontener lokalny już stoi, sprawdzenie ręczne, nieblokujące joba:
 
@@ -506,8 +501,8 @@ Kod `2` ze `sonar-material.sh` jest błędem użycia, nie werdyktem bramki.
 
 ## Zasady
 
-- Check `sonarqube` jest wymagany na `release` i `main` od scalenia, które dodaje workflow.
-- Na `develop` nie jest wymagany.
+- Check `sonarqube` jest wymagany na `develop`, `release` i `main` od scalenia, które dodaje
+  workflow.
 - Pięć warunków z tabeli obowiązuje nowy kod. Pokrycie nowego kodu to co najmniej `80%`, gdy
   są linie do pokrycia.
 - Brak źródeł to sukces z logiem, nie wyłączenie checka.
@@ -645,8 +640,8 @@ Nie pisze schematu bazy. Mierzy wycinek, który promocja chce wpuścić na `rele
 - [Adding analysis to a GitHub Actions
   workflow](https://docs.sonarsource.com/sonarqube-community-build/devops-platform-integration/github-integration/adding-analysis-to-github-actions-workflow).
   Wiążące jest użycie `sonar.qualitygate.wait=true` w YAML, gdy werdyktem ma być kod
-  skanera. Dotyczy joba `sonarqube` na `pull_request` do `release` i `main`. Ze źródła nie
-  bierzemy osobnej akcji Quality Gate Check jako drugiego werdyktu i nie bierzemy dekoracji
+  skanera. Dotyczy joba `sonarqube` na `pull_request` do `develop`, `release` i `main`. Ze
+  źródła nie bierzemy osobnej akcji Quality Gate Check jako drugiego werdyktu i nie bierzemy dekoracji
   pull requestu, której Community Build nie daje. Nie bierzemy tokenu z `secrets` w
   przykładzie integracji. Ten YAML sekretu nie ma.
 - [Obraz `sonarqube` ](https://hub.docker.com/_/sonarqube). Wiążący jest oficjalny obraz i
@@ -668,7 +663,7 @@ Nie pisze schematu bazy. Mierzy wycinek, który promocja chce wpuścić na `rele
 - `sonar-material.sh` bez źródeł wypisuje `no material for sonarqube` i kończy się kodem
   `0`.
 - `jq` potwierdza nazwę `jjdevhub` i metrykę `new_coverage`.
-- `release.json` i `main.json` zawierają `sonarqube`, `develop.json` nie zawiera.
+- `develop.json`, `release.json` i `main.json` zawierają `sonarqube`.
 - `feature/lesson_markdown` pada w `check-branch-name.sh` kodem `1`.
 - W plikach tego numeru nie ma wartości hasła ani tokenu.
 - Pięć warunków na nowym kodzie zostaje: blockery `0`, critical `0`, hotspoty `100%`,

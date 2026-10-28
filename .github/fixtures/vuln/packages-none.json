@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "parameters": "--vulnerable --include-transitive",
+  "projects": [
+    {
+      "path": "fixture.csproj",
+      "frameworks": [
+        {
+          "framework": "net11.0",
+          "topLevelPackages": [
+            {
+              "id": "Fixture.Clean",
+              "requestedVersion": "1.0.0",
+              "resolvedVersion": "1.0.0",
+              "vulnerabilities": []
+            }
+          ],
+          "transitivePackages": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "jjdevhub",
+  "conditions": [
+    {
+      "metric": "new_software_quality_blocker_issues",
+      "op": "GT",
+      "error": "0"
+    },
+    {
+      "metric": "new_software_quality_high_issues",
+      "op": "GT",
+      "error": "0"
+    },
+    {
+      "metric": "new_security_hotspots_reviewed",
+      "op": "LT",
+      "error": "100"
+    },
+    {
+      "metric": "new_duplicated_lines_density",
+      "op": "GT",
+      "error": "3"
+    },
+    {
+      "metric": "new_coverage",
+      "op": "LT",
+      "error": "80"
+    }
+  ]
+}

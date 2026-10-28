@@ -414,9 +414,9 @@ Po numerze `07` listy mają wyglądać tak:
 
 | Plik | Checki |
 | --- | --- |
-| `develop.json` | `branch-name`, `pr-title`, `build`, `unit-tests`, `integration-tests`, `performance`, `format`, `codeql`, `gitleaks`, `dependency-vulnerabilities`, `zizmor`, `action-pins`, `scorecard` |
-| `release.json` | checki z `develop` oraz `sonarqube`, `image-scan` |
-| `main.json` | checki z `release` oraz `sbom`, `attestations`, `release-tags` |
+| `develop.json` | `branch-name`, `pr-title`, `build`, `unit-tests`, `integration-tests`, `performance`, `format`, `codeql`, `gitleaks`, `dependency-vulnerabilities`, `zizmor`, `action-pins`, `scorecard`, `sonarqube`, `image-scan`, `sbom`, `attestations`, `release-tags` |
+| `release.json` | `branch-name`, `pr-title`, `build`, `unit-tests`, `integration-tests`, `performance`, `format`, `codeql`, `gitleaks`, `dependency-vulnerabilities`, `zizmor`, `action-pins`, `scorecard`, `sonarqube`, `image-scan`, `sbom`, `attestations`, `release-tags` |
+| `main.json` | `branch-name`, `pr-title`, `build`, `unit-tests`, `integration-tests`, `performance`, `format`, `codeql`, `gitleaks`, `dependency-vulnerabilities`, `zizmor`, `action-pins`, `scorecard`, `sonarqube`, `image-scan`, `sbom`, `attestations`, `release-tags` |
 
 ### 4. Zostawić pusty sukces jawnym logiem
 

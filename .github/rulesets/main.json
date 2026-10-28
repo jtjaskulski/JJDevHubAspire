@@ -54,7 +54,34 @@
             "context": "codeql"
           },
           {
+            "context": "gitleaks"
+          },
+          {
             "context": "performance"
+          },
+          {
+            "context": "dependency-vulnerabilities"
+          },
+          {
+            "context": "zizmor"
+          },
+          {
+            "context": "action-pins"
+          },
+          {
+            "context": "scorecard"
+          },
+          {
+            "context": "sonarqube"
+          },
+          {
+            "context": "image-scan"
+          },
+          {
+            "context": "sbom"
+          },
+          {
+            "context": "attestations"
           }
         ]
       }

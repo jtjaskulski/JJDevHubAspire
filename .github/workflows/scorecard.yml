@@ -1,0 +1,51 @@
+name: scorecard
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release
+      - main
+  push:
+    branches:
+      - develop
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions: {}
+
+jobs:
+  scorecard:
+    name: scorecard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.sha }}
+
+      - name: Install scorecard
+        run: |
+          set -euo pipefail
+          bindir="${RUNNER_TEMP}/supply-chain"
+          mkdir -p "$bindir"
+          .github/scripts/install-pinned-tool.sh scorecard "$bindir"
+          echo "$bindir" >> "$GITHUB_PATH"
+
+      - name: Gate file probes
+        run: |
+          set -euo pipefail
+          report=$(mktemp)
+          set +e
+          scorecard --local . --format json > "$report"
+          set -e
+          if [[ ! -s $report ]]; then
+            echo "brak JSON scorecard" >&2
+            exit 1
+          fi
+          .github/scripts/scorecard-gate.sh < "$report"

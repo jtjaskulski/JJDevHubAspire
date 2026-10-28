@@ -1,0 +1,106 @@
+name: dependencies
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release
+      - main
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions: {}
+
+jobs:
+  dependency-vulnerabilities:
+    name: dependency-vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.sha }}
+
+      - name: Require SDK pin
+        run: |
+          set -euo pipefail
+          found=$(find . \( -path './.git' -o -path '*/bin' -o -path '*/obj' -o -path '*/node_modules' \) -prune -o -name '*.csproj' -print -quit)
+          if [[ -n $found && ! -f global.json ]]; then
+            echo "brak global.json przy projekcie" >&2
+            exit 1
+          fi
+
+      - name: Setup .NET
+        if: hashFiles('**/*.csproj') != ''
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Vulnerability gate
+        run: |
+          set -euo pipefail
+          status=0
+          csprojs=()
+          packages=()
+          while IFS= read -r path; do
+            [[ -z $path ]] && continue
+            case "$path" in
+              *.csproj) csprojs+=("$path") ;;
+              *) packages+=("$path") ;;
+            esac
+          done < <(find . \( -path './.git' -o -path '*/bin' -o -path '*/obj' -o -path '*/node_modules' \) -prune -o \( -name '*.csproj' -o -name 'package.json' \) -print)
+
+          if [[ ${#csprojs[@]} -eq 0 && ${#packages[@]} -eq 0 ]]; then
+            printf 'no material for dependency-vulnerabilities\n'
+            exit 0
+          fi
+
+          if [[ ${#csprojs[@]} -gt 0 && ! -f global.json ]]; then
+            echo "brak global.json przy projekcie" >&2
+            exit 1
+          fi
+
+          for package_json in "${packages[@]}"; do
+            dir=$(dirname "$package_json")
+            if [[ ! -f ${dir}/package-lock.json ]]; then
+              echo "brak package-lock.json przy ${package_json}" >&2
+              status=1
+            fi
+          done
+          if [[ $status -ne 0 ]]; then
+            exit 1
+          fi
+
+          for csproj in "${csprojs[@]}"; do
+            json=$(mktemp)
+            dotnet list "$csproj" package --vulnerable --include-transitive --format json > "$json"
+            if ! .github/scripts/vuln-gate.sh --nuget-json "$json"; then
+              status=1
+            fi
+            rm -f "$json"
+          done
+
+          for package_json in "${packages[@]}"; do
+            dir=$(dirname "$package_json")
+            json=$(mktemp)
+            set +e
+            (
+              cd "$dir"
+              npm audit --audit-level=high --json
+            ) > "$json"
+            npm_code=$?
+            set -e
+            if ! .github/scripts/vuln-gate.sh --npm-json "$json"; then
+              status=1
+            fi
+            if [[ $npm_code -ne 0 ]]; then
+              status=1
+            fi
+            rm -f "$json"
+          done
+
+          exit "$status"

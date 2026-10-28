@@ -1,0 +1,456 @@
+name: artifacts
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release
+      - main
+
+permissions: {}
+
+jobs:
+  image-scan:
+    name: image-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check Trivy ignore expiry
+        run: .github/scripts/trivy-ignore-expiry.sh --file .github/trivy/trivy.yaml
+
+      - name: List Dockerfiles
+        id: images
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          json=$(.github/scripts/affected-components.sh --from-git)
+          output=$(.github/scripts/dockerfiles.sh --components "$json" --job image-scan)
+          printf '%s\n' "$output"
+          if [[ $output == 'no material for image-scan' ]]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '%s\n' "$output" > "${RUNNER_TEMP}/dockerfiles.txt"
+          echo "any=true" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Trivy
+        if: steps.images.outputs.any == 'true'
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.70.0
+
+      - name: Build and scan
+        if: steps.images.outputs.any == 'true'
+        run: |
+          set -euo pipefail
+          while IFS= read -r line; do
+            [[ -z $line ]] && continue
+            component=${line%% *}
+            path=${line#* }
+            docker build --file "$path" --tag "jjdevhub/${component}:scan" .
+            trivy image --severity HIGH,CRITICAL --exit-code 1 --config .github/trivy/trivy.yaml "jjdevhub/${component}:scan"
+          done < "${RUNNER_TEMP}/dockerfiles.txt"
+
+  sbom:
+    name: sbom
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build images
+        id: images
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          json=$(.github/scripts/affected-components.sh --from-git)
+          output=$(.github/scripts/dockerfiles.sh --components "$json" --job sbom)
+          printf '%s\n' "$output"
+          if [[ $output == 'no material for sbom' ]]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "any=true" >> "$GITHUB_OUTPUT"
+          while IFS= read -r line; do
+            [[ -z $line ]] && continue
+            component=${line%% *}
+            path=${line#* }
+            docker build --file "$path" --tag "jjdevhub/${component}:scan" .
+            echo "${component}=true" >> "$GITHUB_OUTPUT"
+          done <<< "$output"
+
+      - name: SBOM contact
+        if: steps.images.outputs.contact == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/contact:scan
+          format: spdx-json
+          output-file: sbom-contact.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: SBOM cv
+        if: steps.images.outputs.cv == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/cv:scan
+          format: spdx-json
+          output-file: sbom-cv.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: SBOM gateway
+        if: steps.images.outputs.gateway == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/gateway:scan
+          format: spdx-json
+          output-file: sbom-gateway.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: SBOM identity
+        if: steps.images.outputs.identity == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/identity:scan
+          format: spdx-json
+          output-file: sbom-identity.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: SBOM learning
+        if: steps.images.outputs.learning == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/learning:scan
+          format: spdx-json
+          output-file: sbom-learning.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: SBOM mobile
+        if: steps.images.outputs.mobile == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/mobile:scan
+          format: spdx-json
+          output-file: sbom-mobile.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: SBOM news
+        if: steps.images.outputs.news == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/news:scan
+          format: spdx-json
+          output-file: sbom-news.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: SBOM web
+        if: steps.images.outputs.web == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/web:scan
+          format: spdx-json
+          output-file: sbom-web.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Upload SBOM
+        if: steps.images.outputs.any == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: sbom-*.spdx.json
+          retention-days: 14
+          if-no-files-found: error
+
+  attestations:
+    name: attestations
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build images
+        id: images
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          json=$(.github/scripts/affected-components.sh --from-git)
+          output=$(.github/scripts/dockerfiles.sh --components "$json" --job attestations)
+          printf '%s\n' "$output"
+          if [[ $output == 'no material for attestations' ]]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "any=true" >> "$GITHUB_OUTPUT"
+          while IFS= read -r line; do
+            [[ -z $line ]] && continue
+            component=${line%% *}
+            path=${line#* }
+            docker build --file "$path" --tag "jjdevhub/${component}:scan" .
+            digest=$(docker image inspect --format '{{.Id}}' "jjdevhub/${component}:scan")
+            echo "${component}=true" >> "$GITHUB_OUTPUT"
+            echo "${component}_digest=${digest}" >> "$GITHUB_OUTPUT"
+          done <<< "$output"
+
+      - name: SBOM contact
+        if: steps.images.outputs.contact == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/contact:scan
+          format: spdx-json
+          output-file: sbom-contact.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Attest provenance contact
+        if: steps.images.outputs.contact == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: jjdevhub/contact
+          subject-digest: ${{ steps.images.outputs.contact_digest }}
+          push-to-registry: false
+
+      - name: Attest SBOM contact
+        if: steps.images.outputs.contact == 'true'
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: jjdevhub/contact
+          subject-digest: ${{ steps.images.outputs.contact_digest }}
+          sbom-path: sbom-contact.spdx.json
+          push-to-registry: false
+
+      - name: SBOM cv
+        if: steps.images.outputs.cv == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/cv:scan
+          format: spdx-json
+          output-file: sbom-cv.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Attest provenance cv
+        if: steps.images.outputs.cv == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: jjdevhub/cv
+          subject-digest: ${{ steps.images.outputs.cv_digest }}
+          push-to-registry: false
+
+      - name: Attest SBOM cv
+        if: steps.images.outputs.cv == 'true'
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: jjdevhub/cv
+          subject-digest: ${{ steps.images.outputs.cv_digest }}
+          sbom-path: sbom-cv.spdx.json
+          push-to-registry: false
+
+      - name: SBOM gateway
+        if: steps.images.outputs.gateway == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/gateway:scan
+          format: spdx-json
+          output-file: sbom-gateway.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Attest provenance gateway
+        if: steps.images.outputs.gateway == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: jjdevhub/gateway
+          subject-digest: ${{ steps.images.outputs.gateway_digest }}
+          push-to-registry: false
+
+      - name: Attest SBOM gateway
+        if: steps.images.outputs.gateway == 'true'
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: jjdevhub/gateway
+          subject-digest: ${{ steps.images.outputs.gateway_digest }}
+          sbom-path: sbom-gateway.spdx.json
+          push-to-registry: false
+
+      - name: SBOM identity
+        if: steps.images.outputs.identity == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/identity:scan
+          format: spdx-json
+          output-file: sbom-identity.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Attest provenance identity
+        if: steps.images.outputs.identity == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: jjdevhub/identity
+          subject-digest: ${{ steps.images.outputs.identity_digest }}
+          push-to-registry: false
+
+      - name: Attest SBOM identity
+        if: steps.images.outputs.identity == 'true'
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: jjdevhub/identity
+          subject-digest: ${{ steps.images.outputs.identity_digest }}
+          sbom-path: sbom-identity.spdx.json
+          push-to-registry: false
+
+      - name: SBOM learning
+        if: steps.images.outputs.learning == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/learning:scan
+          format: spdx-json
+          output-file: sbom-learning.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Attest provenance learning
+        if: steps.images.outputs.learning == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: jjdevhub/learning
+          subject-digest: ${{ steps.images.outputs.learning_digest }}
+          push-to-registry: false
+
+      - name: Attest SBOM learning
+        if: steps.images.outputs.learning == 'true'
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: jjdevhub/learning
+          subject-digest: ${{ steps.images.outputs.learning_digest }}
+          sbom-path: sbom-learning.spdx.json
+          push-to-registry: false
+
+      - name: SBOM mobile
+        if: steps.images.outputs.mobile == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/mobile:scan
+          format: spdx-json
+          output-file: sbom-mobile.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Attest provenance mobile
+        if: steps.images.outputs.mobile == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: jjdevhub/mobile
+          subject-digest: ${{ steps.images.outputs.mobile_digest }}
+          push-to-registry: false
+
+      - name: Attest SBOM mobile
+        if: steps.images.outputs.mobile == 'true'
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: jjdevhub/mobile
+          subject-digest: ${{ steps.images.outputs.mobile_digest }}
+          sbom-path: sbom-mobile.spdx.json
+          push-to-registry: false
+
+      - name: SBOM news
+        if: steps.images.outputs.news == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/news:scan
+          format: spdx-json
+          output-file: sbom-news.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Attest provenance news
+        if: steps.images.outputs.news == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: jjdevhub/news
+          subject-digest: ${{ steps.images.outputs.news_digest }}
+          push-to-registry: false
+
+      - name: Attest SBOM news
+        if: steps.images.outputs.news == 'true'
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: jjdevhub/news
+          subject-digest: ${{ steps.images.outputs.news_digest }}
+          sbom-path: sbom-news.spdx.json
+          push-to-registry: false
+
+      - name: SBOM web
+        if: steps.images.outputs.web == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: jjdevhub/web:scan
+          format: spdx-json
+          output-file: sbom-web.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Attest provenance web
+        if: steps.images.outputs.web == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: jjdevhub/web
+          subject-digest: ${{ steps.images.outputs.web_digest }}
+          push-to-registry: false
+
+      - name: Attest SBOM web
+        if: steps.images.outputs.web == 'true'
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: jjdevhub/web
+          subject-digest: ${{ steps.images.outputs.web_digest }}
+          sbom-path: sbom-web.spdx.json
+          push-to-registry: false

@@ -127,14 +127,14 @@ requestu po numerach `01`–`07`.
 
 | Gałąź docelowa | Checki, które ruleset wymaga |
 | --- | --- |
-| `develop` | `build`, `unit-tests`, `integration-tests`, `performance`, `format`, `codeql`, `gitleaks`, `dependency-vulnerabilities`, `branch-name`, `pr-title`, oraz z numeru `06`: `zizmor`, `action-pins`, `scorecard` |
-| `release` | checki z `develop` oraz `sonarqube`, `image-scan` |
-| `main` | checki z `release` oraz `sbom`, `attestations`, `release-tags` |
+| `develop` | `branch-name`, `pr-title`, `build`, `unit-tests`, `integration-tests`, `performance`, `format`, `codeql`, `gitleaks`, `dependency-vulnerabilities`, `zizmor`, `action-pins`, `scorecard`, `sonarqube`, `image-scan`, `sbom`, `attestations`, `release-tags` |
+| `release` | `branch-name`, `pr-title`, `build`, `unit-tests`, `integration-tests`, `performance`, `format`, `codeql`, `gitleaks`, `dependency-vulnerabilities`, `zizmor`, `action-pins`, `scorecard`, `sonarqube`, `image-scan`, `sbom`, `attestations`, `release-tags` |
+| `main` | `branch-name`, `pr-title`, `build`, `unit-tests`, `integration-tests`, `performance`, `format`, `codeql`, `gitleaks`, `dependency-vulnerabilities`, `zizmor`, `action-pins`, `scorecard`, `sonarqube`, `image-scan`, `sbom`, `attestations`, `release-tags` |
 
-`develop` przyjmuje zmianę po pierwszej bramce. `release` po drugiej. `main` po
-trzeciej. Na `main` leżą zmiany, które przeszły pełny ciąg. Check z wcześniejszej
-bramki raportuje się także na dalszej gałęzi. Inaczej ruleset `main` czekałby na
-status, którego workflow nie wysłał.
+`develop`, `release` i `main` wymagają tej samej listy checków. `develop` przyjmuje
+zmianę squashem. `release` i `main` przyjmują ją merge commitem. Check raportuje się
+na pull request do każdej z tych gałęzi. Inaczej ruleset czekałby na status, którego
+workflow nie wysłał.
 
 Job pull requestu idzie na `ubuntu-latest`. Runner własny nie startuje na
 `pull_request`. W numerach `01`–`07` każdy job, także `push` i harmonogram,
@@ -224,21 +224,21 @@ długich gałęziach.
 
 ### [04-zaleznosci-i-obrazy.md](04-zaleznosci-i-obrazy.md)
 
-Podatności zależności na bramce `develop` oraz skan obrazu, SBOM i atestacja.
-Zależności: `dotnet list package --vulnerable` i `npm audit`, próg wysoki i
-krytyczny, także bez poprawki. Obraz: Trivy, ten sam próg, gdy jest Dockerfile.
-SBOM: Syft w SPDX. Atestacja: wbudowane atestacje artefaktów GitHuba, bez klucza
-w repozytorium.
+Podatności zależności, skan obrazu, SBOM i atestacja. Cztery checki są wymagane
+na `develop`, `release` i `main`. Zależności: `dotnet list package --vulnerable`
+i `npm audit`, próg wysoki i krytyczny, także bez poprawki. Obraz: Trivy, ten
+sam próg, gdy jest Dockerfile. SBOM: Syft w SPDX. Atestacja: wbudowane atestacje
+artefaktów GitHuba, bez klucza w repozytorium.
 
 Joby `image-scan`, `sbom` i `attestations` żyją w `.github/workflows/artifacts.yml`
-od tego numeru. `image-scan` jest wymagany od `release`. `sbom` i `attestations`
-od `main`. Wypchnięcie obrazu do rejestru i deploy są w numerze `16`. Zmiana
-News nie skanuje obrazu Identity.
+od tego numeru i są wymagane na trzech długich gałęziach. Gdy jest Dockerfile,
+trzy joby robią prawdziwą pracę także na `develop`. Wypchnięcie obrazu do
+rejestru i deploy są w numerze `16`. Zmiana News nie skanuje obrazu Identity.
 
 ### [05-sonarqube.md](05-sonarqube.md)
 
-Bramka jakości SonarQube Community Build, wymagana od pierwszego pull requestu,
-który celuje w `release` albo `main`. Na czas developmentu serwer to jeden
+Bramka jakości SonarQube Community Build, wymagana od pierwszego pull requestu
+na `develop`, `release` i `main`. Na czas developmentu serwer to jeden
 kontener. Job `sonarqube` w CI stawia świeży kontener na `ubuntu-latest` i
 ładuje bramkę `jjdevhub` z pliku w gicie, więc wynik nie zależy od kliknięć w
 interfejsie.
@@ -266,9 +266,10 @@ które wymagają tokenu.
 ### [07-wersje.md](07-wersje.md)
 
 Osobny numer każdego komponentu, zanim powstanie VM. Dodaje manifest
-release-please, pliki `versions/<komponent>.json` i job `release-tags`. Tagi
-mają postać `identity-vX.Y.Z` i `news-v1.4.0`. Tag `news` nie przebudowuje
-pozostałych obrazów. Wtyczka `linked-versions` nie wchodzi.
+release-please, pliki `versions/<komponent>.json` i job `release-tags`. Check
+jest wymagany na `develop`, `release` i `main`. Tag powstaje na `push` do
+`main`. Tagi mają postać `identity-vX.Y.Z` i `news-v1.4.0`. Tag `news` nie
+przebudowuje pozostałych obrazów. Wtyczka `linked-versions` nie wchodzi.
 
 Zmiana w `JJDevHub.Shared.Kernel` podbija każdą usługę, która ma do niego
 `ProjectReference`. SemVer: przed `1.0.0` zmiana łamiąca podbija minor. Web
@@ -403,13 +404,17 @@ wygląda tak.
    `no material`, a job nie jest skipped.
 5. `gitleaks`, `zizmor`, `action-pins` i `scorecard` oceniają workflow dodane w
    `01`–`07`. Sekret w diffie i `uses` z tagiem `@v4` padają już tutaj.
-6. `dependency-vulnerabilities` kończy się sukcesem, dopóki nie ma lockfile ani
-   projektu. `package.json` bez lockfile pada.
-7. Wejście na `release` uruchamia `sonarqube` i `image-scan`, i powtarza testy
-   oraz `codeql`. Bez kodu i bez Dockerfile te joby raportują sukces.
-8. Wejście na `main` uruchamia `sbom`, `attestations` i `release-tags`, i
-   powtarza testy. Tag powstaje tylko dla komponentu, którego plik wersji się
-   zmienił. Wersja `0.0.0` tagu nie dostaje.
+6. `dependency-vulnerabilities` skanuje każdy `*.csproj` w drzewie, także AppHost i
+   Server. Waga wysoka albo krytyczna kończy job kodem `1`. Brak `global.json` przy
+   projekcie też kończy job kodem `1`. `package.json` bez lockfile pada. `image-scan`,
+   `sbom` i `attestations` kończą się sukcesem, dopóki nie ma Dockerfile. Gdy
+   Dockerfile jest, trzy joby robią prawdziwą pracę już na `develop`.
+7. `sonarqube` i `release-tags` raportują się już na `develop`. Bez źródeł i bez
+   pliku wersji do tagowania kończą się sukcesem. Próg pokrycia blokuje pierwszy
+   pull request na `develop`.
+8. Wejście na `release` i na `main` powtarza tę samą listę. Tag powstaje tylko
+   po wejściu na `main`, dla komponentu, którego plik wersji się zmienił.
+   Wersja `0.0.0` tagu nie dostaje.
 
 Gałąź `feature/lesson_markdown` pada na `branch-name` niezależnie od tego, czy
 katalog Learning już jest. Zielony `build` tej nazwy nie naprawia.
