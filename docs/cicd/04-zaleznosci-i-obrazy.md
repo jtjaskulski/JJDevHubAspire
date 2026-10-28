@@ -2,12 +2,13 @@
 
 Poprzedni numer, [CodeQL](03-codeql.md), czyta ścieżki w kodzie, który sami piszemy.
 Następny, [SonarQube](05-sonarqube.md), stawia bramkę jakości. Ten numer dodaje cztery
-checki: `dependency-vulnerabilities` na bramce `develop` oraz `image-scan`, `sbom` i
-`attestations` dalej na ścieżce do `main`. Sekrety w diffie zostają w
+checki: `dependency-vulnerabilities`, `image-scan`, `sbom` i `attestations`. Wszystkie
+cztery są wymagane na `develop`, `release` i `main`. Sekrety w diffie zostają w
 [06-lancuch-dostaw.md](06-lancuch-dostaw.md). Wypchnięcie obrazu i deploy zostają w
 [16-deploy.md](16-deploy.md). Skan obrazu, SBOM i atestacja mieszkają w jednym workflow,
 `.github/workflows/artifacts.yml`. Zależności mieszkają osobno, w
-`.github/workflows/dependencies.yml`, bo stoją na `develop` i nie potrzebują Dockera.
+`.github/workflows/dependencies.yml`, bo nie potrzebują Dockera. Oba workflow startują
+na pull request do trzech długich gałęzi.
 
 Scenariusz, który bez tej ramy się rozpada, ma zielony test i czerwoną paczkę. Pull request
 News niesie `feat(news): publish article revision`. Test jednostkowy publikacji przechodzi.
@@ -23,7 +24,7 @@ To samo dotyczy obrazu, gdy Dockerfile już jest. Warstwa systemu dokłada paczk
 ma w `csproj`. Test jednostkowy ich nie uruchamia. Trivy na lokalnym tagu
 `jjdevhub/news:scan` ma paść przy `HIGH` albo `CRITICAL`, także gdy poprawki jeszcze nie ma.
 `--ignore-unfixed` zostaje wyłączone. Inaczej pierwsza podstawa obrazu wjechałaby na
-`release` z wysokim CVE, a próg „podniesiemy później” zostałby na zawsze. Osobnego,
+`develop` z wysokim CVE, a próg „podniesiemy później” zostałby na zawsze. Osobnego,
 łagodniejszego progu na start nie ma.
 
 Do dnia, w którym pojawi się lockfile albo Dockerfile, cztery joby kończą się sukcesem, bo
@@ -41,25 +42,24 @@ Obraz, gdy już jest, dokłada systemowe paczki podstawy. Bez wykazu składnikó
 numer [16-deploy.md](16-deploy.md) nie ma czego porównać z tagiem. Publikacja
 `feat(news): publish article revision` może być poprawna w teście i jednocześnie wciągać
 przechodnią paczkę o wadze `High`. Bramka na `develop` ma to zatrzymać, zanim plik wersji
-ruszy. Bramka obrazu na `release` ma zatrzymać warstwę systemu, zanim tag w ogóle powstanie
-na `main`.
+ruszy. Ta sama bramka obrazu na `develop` ma zatrzymać warstwę systemu, zanim squash
+w ogóle wejdzie. `release` i `main` powtarzają te cztery checki.
 
 Podział bramek:
 
 | Check | Gdzie jest wymagany | Kiedy werdykt zaczyna wiązać |
 | --- | --- | --- |
 | `dependency-vulnerabilities` | `develop`, `release`, `main` | jest `*.csproj` albo lockfile npm |
-| `image-scan` | `release`, `main` | w drzewie jest Dockerfile dotkniętego komponentu |
-| `sbom` | `main` | ten sam warunek |
-| `attestations` | `main` | ten sam warunek |
+| `image-scan` | `develop`, `release`, `main` | w drzewie jest Dockerfile dotkniętego komponentu |
+| `sbom` | `develop`, `release`, `main` | ten sam warunek |
+| `attestations` | `develop`, `release`, `main` | ten sam warunek |
 
 Pusty sukces jest jawny: log `no material for <job>`. Dla zależności linia brzmi
 `no material for dependency-vulnerabilities`. Dla obrazu `no material for image-scan`,
-`no material for sbom` i `no material for attestations`. Job nie jest skipped. Na `release`
-joby `sbom` i `attestations` i tak się uruchamiają, logują brak swojej bramki z powodu
-gałęzi i kończą się sukcesem. Ruleset `release` ich nie wymaga. Na `main` warunek puszcza
-prawdziwy skan, gdy jest Dockerfile. Dzięki temu GitHub nie pokazuje ich jako skipped na
-`release` w sposób, który miesza się z brakiem raportu.
+`no material for sbom` i `no material for attestations`. Job nie jest skipped. Pusty
+sukces jest tylko wtedy, gdy nie ma lockfile albo Dockerfile. Na `develop`, `release` i
+`main`, gdy Dockerfile jest, trzy joby robią prawdziwą pracę. Dzięki temu GitHub nie
+pokazuje ich jako skipped, a ruleset nie czeka na status, którego workflow nie wysłał.
 
 Próg dla zależności i dla obrazu jest jeden: waga wysoka i krytyczna kończy job kodem `1`.
 Średnia i niska zostają w logu. Dotyczy to także podatności bez poprawki. Nie ma osobnego
@@ -68,10 +68,10 @@ paczkę wagi `High` w kształcie JSON z `dotnet list package --format json` i ma
 Fixture `packages-none.json` nie niesie podatności i ma dać kod `0`. To są fixture bramki,
 nie przywrócenie prawdziwej paczki. Czyta je `vuln-gate.sh --nuget-json`, bez sieci.
 
-Numer jest przed usługami i przed Dockerfile. Pierwszy pull request funkcji na `develop` już
-wymaga `dependency-vulnerabilities`. Na `release` już wymaga `image-scan`. Na `main` już
-wymaga `sbom` i `attestations`. Wszystkie cztery są zielone, dopóki nie ma lockfile i
-Dockerfile. Gdy `package.json` jest, a `package-lock.json` nie ma, job kończy się kodem `1`.
+Numer jest przed usługami i przed Dockerfile. Pierwszy pull request funkcji na `develop`
+już wymaga czterech checków. Na `release` i na `main` ta sama czwórka jest wymagana
+ponownie. Wszystkie cztery są zielone, dopóki nie ma lockfile i Dockerfile. Gdy
+`package.json` jest, a `package-lock.json` nie ma, job kończy się kodem `1`.
 Drzewo nie jest powtarzalne, więc nie da się powiedzieć, co weszło. Sam `package.json` nie
 wystarcza, żeby nazwać zielony audyt.
 
@@ -183,13 +183,12 @@ Osobnej listy „usługi do skanowania” nie ma. Mapa jest ta sama co w numerze
 
 ### Syft i SPDX jako SBOM
 
-Job `sbom` na pull request do `main` bierze ten sam lokalny obraz co skan, jeśli Dockerfile
-istnieje, i woła Syft z wyjściem SPDX JSON. Plik nazywa się `sbom-<komponent>.spdx.json` i
-jest artefaktem przebiegu. Jeden komponent, jeden plik. Dla News jest to
-`sbom-news.spdx.json`. Komponent bez Dockerfile nie dostaje pliku i nie powoduje porażki.
-Pusty sukces na `main` bez Dockerfile to `no material for sbom` i kod `0`. Na pull request
-do `release` ten job loguje, że jego bramka jest na `main`, i też kończy się sukcesem, bo
-ruleset `release` go nie wymaga.
+Job `sbom` na pull request do `develop`, `release` i `main` bierze ten sam lokalny obraz co
+skan, jeśli Dockerfile istnieje, i woła Syft z wyjściem SPDX JSON. Plik nazywa się
+`sbom-<komponent>.spdx.json` i jest artefaktem przebiegu. Jeden komponent, jeden plik. Dla
+News jest to `sbom-news.spdx.json`. Komponent bez Dockerfile nie dostaje pliku i nie
+powoduje porażki. Pusty sukces bez Dockerfile to `no material for sbom` i kod `0` na każdej
+z trzech gałęzi.
 
 Sam CycloneDX z `dotnet` jako jedyny wykaz odpadł, bo nie obejmuje warstw systemu w obrazie.
 Werdykt Trivy czyta obraz. Wykaz, który czyta tylko `csproj`, nie mówi o podstawie, na
@@ -202,14 +201,13 @@ Koszt zostaje w długości wykazu. SPDX z obrazu jest dłuższy niż lista pakie
 ma być. [16-deploy.md](16-deploy.md) porównuje wykaz z obrazem, który wdraża, a nie z samym
 `csproj`. Krótsza lista wygląda czytelniej i gubi paczkę systemu, która była powodem
 czerwonego Trivy. Joby nie dzielą dysku, więc `sbom` buduje obraz ponownie tym samym
-`docker build`, co skan. Na `main` to jest druga z trzech budów. Trzecią robi job atestacji.
-Powtórzenie jest świadome.
+`docker build`, co skan. Na każdej z trzech gałęzi to jest druga z trzech budów. Trzecią
+robi job atestacji. Powtórzenie jest świadome.
 
-Na `release` prawdziwy skan obrazu się wykonuje. `sbom` tam swojej pracy nie wykonuje poza
-komunikatem o bramce. Inaczej ruleset `release` musiałby wymagać checka, którego tabela tego
-numeru trzyma na `main`. Wymaganie go wcześniej zatrzymałoby promocję na środku o wykaz,
-który deploy i tak czyta przy tagu. Środek ma zobaczyć Trivy. Koniec drogi ma zobaczyć wykaz
-i atestację.
+Na `develop` prawdziwy skan, wykaz i atestacja wykonują się razem. `release` i `main`
+powtarzają tę samą trójkę. Inaczej squash wpuściłby podstawę obrazu z wysokim CVE, a
+wykaz i podpis pochodzenia pojawiłyby się dopiero przy tagu. Deploy i tak czyta wykaz
+przy tagu. Pierwsza bramka ma go już znać.
 
 ### Atestacja GitHuba bez klucza w repozytorium
 
@@ -233,7 +231,7 @@ repozytorium. Ten numer zostawia mu skrót i plik SPDX, które da się powiąza�
 Koszt zostaje poza GitHubem. Ta atestacja nie jest podpisem własnego klucza produktu. Dla
 jednego repozytorium i deployu z tagu, który i tak wycina GitHub, to jest właściwy zakres.
 Własny klucz wróciłby do Cosigna, którego ten numer odrzucił. Trzecia budowa obrazu na
-`main` jest częścią tego kosztu. `attestations` nie widzi dysku joba `image-scan` ani joba
+`develop`, `release` i `main` jest częścią tego kosztu. `attestations` nie widzi dysku joba `image-scan` ani joba
 `sbom`. Buduje trzeci raz tym samym `docker build` i poświadcza skrót tej budowy.
 Współdzielenie obrazu między jobami wymagałoby rejestru albo `actions/cache` dużego pliku
 warstw. Na jednym komponencie trzy budowy są czytelniejsze niż ukryty stan. Gdy komponentów
@@ -241,7 +239,7 @@ przybędzie, numer `16` i tak buduje obraz wydania osobno, z tagu.
 
 Gdy nie ma Dockerfile, job loguje `no material for attestations` i kończy się kodem `0` bez
 wołania akcji atestacji. Wołanie atestacji bez skrótu obrazu skończyłoby się błędem i
-zablokowało promocję dokumentacji na `main`, choć nie ma czego poświadczać. To jest ten sam
+zablokowało scalenie dokumentacji, choć nie ma czego poświadczać. To jest ten sam
 pusty sukces co przy Trivy i przy Syft. Trzy nazwy checków istnieją od tego numeru.
 Zaczynają wiązać materiał w dniu, w którym komponent dostaje Dockerfile w ustalonej ścieżce.
 Nowy komponent z mapy numeru `02` podlega skanowi automatycznie. Osobnej listy usług do
@@ -266,9 +264,9 @@ numeru `07`, przez numer `16`, nie ten lokalny tag skanu.
 | `.github/trivy/trivy.yaml` | konfiguracja Trivy, na start bez wyciszeń |
 | `.github/fixtures/vuln/packages-high.json` | jedna paczka wagi `High` |
 | `.github/fixtures/vuln/packages-none.json` | brak podatności |
-| `.github/rulesets/develop.json` | dopisany `dependency-vulnerabilities` |
-| `.github/rulesets/release.json` | dopisany `image-scan` oraz check z `develop` |
-| `.github/rulesets/main.json` | dopisane `sbom` i `attestations` |
+| `.github/rulesets/develop.json` | dopisane `dependency-vulnerabilities`, `image-scan`, `sbom`, `attestations` |
+| `.github/rulesets/release.json` | te same cztery checki |
+| `.github/rulesets/main.json` | te same cztery checki |
 
 Szukane pliki Dockerfile:
 
@@ -282,13 +280,12 @@ Wyzwalacze:
 | Plik | Gałęzie pull requestu |
 | --- | --- |
 | `dependencies.yml` | `develop`, `release`, `main` |
-| `artifacts.yml` | `release` i `main` dla całego pliku |
+| `artifacts.yml` | `develop`, `release` i `main` |
 
 `dependencies.yml` ma dodatkowo `schedule` z `cron: "0 6 * * 1"` na gałęzi `develop`. W
-`artifacts.yml` job `image-scan` wykonuje skan na obu celach. Joby `sbom` i `attestations`
-wykonują swoją pracę, gdy `github.base_ref` to `main`. `permissions` skanu i SBOM to
-`contents: read`. Atestacja dokłada `id-token: write` i `attestations: write` wyłącznie na
-swoim jobie.
+`artifacts.yml` trzy joby wykonują skan, wykaz i atestację na każdym z tych celów, gdy jest
+Dockerfile. `permissions` skanu i SBOM to `contents: read`. Atestacja dokłada
+`id-token: write` i `attestations: write` wyłącznie na swoim jobie.
 
 ## Plan
 
@@ -313,16 +310,15 @@ Utwórz `artifacts.yml` z trzema jobami: `image-scan`, `sbom`, `attestations`. N
 każdego jest `affected-components.sh` i `dockerfiles.sh`. Drugi skrypt dostaje JSON
 komponentów i wypisuje pary `komponent ścieżka`. Pusta lista daje `no material for <job>`.
 
-Na `main`, gdy Dockerfile jest, `image-scan` buduje obraz tagiem `jjdevhub/<komponent>:scan`
-i skanuje go Trivy. Nie wypychaj obrazu. `sbom` buduje ponownie tym samym `docker build` i
-woła Syft z wyjściem SPDX JSON do `sbom-<komponent>.spdx.json`. `attestations` buduje trzeci
-raz i woła `actions/attest-build-provenance` oraz `actions/attest-sbom` dla skrótu i dla
-pliku SPDX. Trzy budowy są świadome: joby nie dzielą dysku.
-
-Na `release` wykonaj prawdziwy `image-scan`. `sbom` i `attestations` zakończ komunikatem, że
-ich bramka jest na `main`, kodem `0`. Nie stawiaj `if` na całym jobie, które GitHub pokazuje
-jako skipped. `runs-on` to `ubuntu-latest`. `timeout-minutes` to `20`. Trivy wołaj z
-`--severity HIGH,CRITICAL` i z wyłączonym `--ignore-unfixed`.
+Na `develop`, `release` i `main`, gdy Dockerfile jest, `image-scan` buduje obraz tagiem
+`jjdevhub/<komponent>:scan` i skanuje go Trivy. Nie wypychaj obrazu. `sbom` buduje ponownie
+tym samym `docker build` i woła Syft z wyjściem SPDX JSON do `sbom-<komponent>.spdx.json`.
+`attestations` buduje trzeci raz i woła `actions/attest-build-provenance` oraz
+`actions/attest-sbom` dla skrótu i dla pliku SPDX. Trzy budowy są świadome: joby nie dzielą
+dysku. Nie stawiaj `if` na całym jobie, które GitHub pokazuje jako skipped. `runs-on` to
+`ubuntu-latest`. `timeout-minutes` to `20`. Trivy wołaj z `--severity HIGH,CRITICAL` i z
+wyłączonym `--ignore-unfixed`. Wyzwalacz pull requestu ustaw na `develop`, `release` i
+`main`.
 
 ### 3. Dodać datę wyciszenia Trivy
 
@@ -334,9 +330,8 @@ skrypt przed Trivy, także gdy nie ma Dockerfile.
 ### 4. Dopisać nazwy do rulesetów
 
 W scaleniu `dependencies.yml` dopisz `dependency-vulnerabilities` do trzech JSON-ów. W
-scaleniu `artifacts.yml` dopisz `image-scan` do `release.json` i `main.json`, a `sbom` i
-`attestations` tylko do `main.json`. Nie dopisuj nazwy w scaleniu, które jeszcze nie zawiera
-workflow raportującego tę nazwę.
+scaleniu `artifacts.yml` dopisz `image-scan`, `sbom` i `attestations` do trzech JSON-ów.
+Nie dopisuj nazwy w scaleniu, które jeszcze nie zawiera workflow raportującego tę nazwę.
 
 ### 5. Zostawić wzorce, które mają paść
 
@@ -363,7 +358,7 @@ aplikacji.
 | Plik | Kto woła | Po co istnieje |
 | --- | --- | --- |
 | `dependencies.yml` | pull request na trzy gałęzie, harmonogram poniedziałkowy | check `dependency-vulnerabilities` |
-| `artifacts.yml` | pull request na `release` i `main` | trzy checki obrazu w jednym miejscu |
+| `artifacts.yml` | pull request na `develop`, `release` i `main` | trzy checki obrazu w jednym miejscu |
 | `vuln-gate.sh` | job zależności i suchy przebieg | próg bez sieci na fixture |
 | `dockerfiles.sh` | trzy joby artefaktów | ten sam warunek „czy jest Dockerfile” |
 | `trivy-ignore-expiry.sh` | `image-scan` | wyciszenie nie zostaje po dacie |
@@ -455,8 +450,8 @@ powtarza ten sam `vuln-gate.sh`.
 ## Zasady
 
 - Próg zależności i obrazu to wysoka i krytyczna waga, łącznie z podatnością bez poprawki.
-- `dependency-vulnerabilities` jest wymagany od `develop` w górę.
-- `image-scan` jest wymagany od `release` w górę. `sbom` i `attestations` od `main`.
+- `dependency-vulnerabilities`, `image-scan`, `sbom` i `attestations` są wymagane na
+  `develop`, `release` i `main`.
 - Te trzy joby są w `artifacts.yml` także wtedy, gdy w repozytorium nie ma Dockerfile.
 - Brak materiału to sukces z logiem. Jest materiał i jest trafienie, to porażka.
 - Job nie wypycha obrazu i nie loguje się do rejestru. Tag lokalny to
@@ -471,7 +466,7 @@ powtarza ten sam `vuln-gate.sh`.
 - `id-token: write` i `attestations: write` są tylko na jobie `attestations`.
 - Harmonogram to poniedziałek, `cron: "0 6 * * 1"`, gałąź `develop`, `ubuntu-latest`.
 - `timeout-minutes` to `20`. `runs-on` to `ubuntu-latest`.
-- Na `main` trzy budowy obrazu jednego komponentu są świadome.
+- Na `develop`, `release` i `main` trzy budowy obrazu jednego komponentu są świadome.
 
 ## Poza zakresem
 
@@ -517,7 +512,7 @@ powtarza ten sam `vuln-gate.sh`.
   do obrazu.
 - [Trivy](https://trivy.dev/docs/latest/). Wiążący jest skan obrazu lokalnego, bez
   wypchnięcia do rejestru. Dotyczy tagu `jjdevhub/<komponent>:scan` i joba `image-scan` na
-  `release` oraz `main`. Ze źródła nie bierzemy Grype ani Docker Scout jako drugiego
+  `develop`, `release` oraz `main`. Ze źródła nie bierzemy Grype ani Docker Scout jako drugiego
   werdyktu w tym samym checku. Token obcej usługi nie wchodzi do YAML.
 - [Trivy vulnerability scanner](https://trivy.dev/docs/latest/scanner/vulnerability/).
   Wiążące są `--severity` oraz flaga pomijania podatności bez poprawki. Dotyczy
@@ -546,7 +541,7 @@ powtarza ten sam `vuln-gate.sh`.
   własnego klucza produktu.
 - [attest-build-provenance](https://github.com/actions/attest-build-provenance). Wiążące
   jest poświadczenie skrótu artefaktu zbudowanego w przebiegu. Dotyczy trzeciej budowy
-  obrazu na `main` i skrótu tagu `jjdevhub/<komponent>:scan`, który nie jest wypychany. Ze
+  obrazu na `develop`, `release` i `main` oraz skrótu tagu `jjdevhub/<komponent>:scan`, który nie jest wypychany. Ze
   źródła nie bierzemy wypchnięcia do rejestru jako warunku atestacji. Rejestr dochodzi w
   numerze `16`, a akcja jest przypięta do pełnego SHA.
 - [attest-sbom](https://github.com/actions/attest-sbom). Wiążące jest poświadczenie pliku
@@ -560,10 +555,10 @@ powtarza ten sam `vuln-gate.sh`.
   request i tak powtarza `vuln-gate.sh`.
 - [Require status checks](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches#require-status-checks-before-merging).
   Wiążące jest to, że check bez raportu blokuje scalenie. Dotyczy dopisania
-  `dependency-vulnerabilities` do trzech JSON-ów oraz `image-scan`, `sbom` i `attestations`
-  tylko tam, gdzie tabela tego numeru je wymaga. Ze źródła nie bierzemy wymagania `sbom` na
-  `release`. Na `release` ten job kończy się komunikatem i kodem `0`, a ruleset go nie
-  wymienia.
+  `dependency-vulnerabilities`, `image-scan`, `sbom` i `attestations` do trzech JSON-ów.
+  Ze źródła nie bierzemy wymagania `sbom` albo `attestations` wyłącznie na `main`. Na
+  `develop` i na `release` te joby robią tę samą pracę co na `main`, a ruleset wymienia je
+  na trzech gałęziach.
 - [Troubleshooting required status checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
   Wiążące jest to, że filtr `paths` zostawia wymagany check w oczekiwaniu. Dotyczy zakazu
   `paths` w `dependencies.yml` i w `artifacts.yml`. Ze źródła nie bierzemy pominięcia całego
