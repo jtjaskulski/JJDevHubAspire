@@ -13,4 +13,4 @@ alwaysApply: false
 - Wersje wystawia manifest komponentów. Tag `<komponent>-vX.Y.Z` nie przebudowuje pozostałych obrazów. Tag z `GITHUB_TOKEN` nie uruchamia innych workflowów — deploy jest w tym samym przebiegu co wydanie, nie w osobnym `workflow_run`.
 - Deploy tylko z tagu na `main`, na `[self-hosted, jjdevhub]`, `environment: production`. Rollback to poprzedni tag tego komponentu.
 - Obraz na produkcję tylko po digeście, ze sprawdzoną atestacją. Akcje w `uses:` przypięte do pełnego SHA z komentarzem wersji.
-- W workflow nie ma sekretów produkcji. Sekrety czyta OpenBao na VM. Token Sonara jest w environment `sonar`.
+- W workflow nie ma sekretów produkcji. Sekrety czyta OpenBao na VM. Do czasu OpenBao job sonarqube sam podnosi kontener i losuje hasło. Token skanera nie jest sekretem GitHuba.

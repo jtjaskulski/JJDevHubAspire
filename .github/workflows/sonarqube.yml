@@ -1,0 +1,375 @@
+name: sonarqube
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release
+      - main
+
+permissions: {}
+
+jobs:
+  sonarqube:
+    name: sonarqube
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    env:
+      SONAR_HOST_URL: http://127.0.0.1:9000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect material
+        id: material
+        run: |
+          set -euo pipefail
+          line=$(.github/scripts/sonar-material.sh)
+          printf '%s\n' "$line"
+          if [[ $line == 'no material for sonarqube' ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [[ $line == material ]]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "nieoczekiwany wynik materiału" >&2
+            exit 1
+          fi
+
+      - name: Classify material
+        id: layout
+        if: steps.material.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          has_csproj=0
+          has_client=0
+          if [[ -d src ]]; then
+            csproj=$(find src \( -path '*/bin' -o -path '*/obj' -o -path '*/node_modules' -o -path '*/dist' \) -prune -o -name '*.csproj' -print -quit)
+            if [[ -n $csproj ]]; then
+              has_csproj=1
+            fi
+            client=$(find src \( -path '*/bin' -o -path '*/obj' -o -path '*/node_modules' -o -path '*/dist' \) -prune -o \( -name '*.js' -o -name '*.ts' -o -name '*.tsx' \) -print -quit)
+            if [[ -n $client ]]; then
+              has_client=1
+            fi
+          fi
+          if [[ $has_csproj -eq 1 ]]; then
+            echo "mode=dotnet" >> "$GITHUB_OUTPUT"
+          elif [[ $has_client -eq 1 ]]; then
+            echo "mode=client" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=unsupported" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Reject unscannable material
+        if: steps.material.outputs.skip != 'true' && steps.layout.outputs.mode == 'unsupported'
+        run: |
+          echo "brak skanera dla materiału" >&2
+          exit 1
+
+      - name: Require SDK pin
+        if: steps.layout.outputs.mode == 'dotnet'
+        run: |
+          set -euo pipefail
+          if [[ ! -f global.json ]]; then
+            echo "brak global.json przy projekcie" >&2
+            exit 1
+          fi
+
+      # Numer 08 może podmienić start kontenera na adres z OpenBao.
+      # Podmiana zostawia sonar.qualitygate.wait i nazwę checka sonarqube.
+      # Dopóki adresu nie ma, werdykt liczy kontener na runnerze.
+      - name: Raise host limits
+        if: steps.material.outputs.skip != 'true' && steps.layout.outputs.mode != 'unsupported'
+        run: |
+          set -euo pipefail
+          sudo sysctl -w vm.max_map_count=524288
+          sudo sysctl -w fs.file-max=131072
+
+      - name: Start SonarQube
+        id: server
+        if: steps.material.outputs.skip != 'true' && steps.layout.outputs.mode != 'unsupported'
+        run: |
+          set -euo pipefail
+          echo "started=true" >> "$GITHUB_OUTPUT"
+          docker compose -p jjdevhub-sonarqube -f compose/sonarqube/compose.yml up -d
+
+      - name: Bootstrap
+        if: steps.material.outputs.skip != 'true' && steps.layout.outputs.mode != 'unsupported'
+        env:
+          SONAR_TOKEN_FILE: ${{ runner.temp }}/sonar-token
+        run: |
+          set -euo pipefail
+          set +x
+          password=$(openssl rand -base64 24 | tr -d '\n')
+          export SONAR_ADMIN_PASSWORD="$password"
+          unset password
+          .github/scripts/sonar-bootstrap.sh
+          token=$(<"${SONAR_TOKEN_FILE}")
+          echo "::add-mask::${token}"
+          unset token
+
+      - name: Require frontend coverage
+        if: steps.material.outputs.skip != 'true' && steps.layout.outputs.mode != 'unsupported'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          if [[ ! -d src/clients ]]; then
+            exit 0
+          fi
+          if [[ -z ${BASE_REF:-} ]]; then
+            echo "brak BASE_REF" >&2
+            exit 1
+          fi
+          if ! git rev-parse --verify --quiet "refs/remotes/origin/${BASE_REF}" >/dev/null; then
+            echo "brak origin/${BASE_REF}" >&2
+            exit 1
+          fi
+          has_ts=0
+          while IFS= read -r path; do
+            [[ -z $path ]] && continue
+            case "$path" in
+              src/clients/*.ts|src/clients/*.tsx) has_ts=1 ;;
+            esac
+          done < <(git diff --name-only "origin/${BASE_REF}...HEAD")
+          if [[ $has_ts -eq 0 ]]; then
+            exit 0
+          fi
+          found=$(find src/clients -name lcov.info -print -quit)
+          if [[ -z $found ]]; then
+            echo "pokrycie frontu nie jest znane" >&2
+            exit 1
+          fi
+
+      - name: Setup .NET
+        if: steps.layout.outputs.mode == 'dotnet'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Analyze .NET
+        if: steps.layout.outputs.mode == 'dotnet'
+        env:
+          SONAR_TOKEN_FILE: ${{ runner.temp }}/sonar-token
+        run: |
+          set -euo pipefail
+          filter='Category!=Integration&Category!=Performance'
+          scanner_version=12.0.0
+          coverage_version=18.12.0
+
+          is_test_project() {
+            grep -Eq 'Include="xunit"|Include="xunit\.|Include="Microsoft\.NET\.Test\.Sdk"|<IsTestProject>[[:space:]]*true[[:space:]]*</IsTestProject>' "$1"
+          }
+
+          check_tree() {
+            local root=$1
+            local csproj
+            local found_prod=0
+            local found_test=0
+            [[ -d $root ]] || return 0
+            while IFS= read -r csproj; do
+              [[ -z $csproj ]] && continue
+              if is_test_project "$csproj"; then
+                found_test=1
+              else
+                found_prod=1
+              fi
+            done < <(find "$root" \( -path '*/bin' -o -path '*/obj' \) -prune -o -name '*.csproj' -print)
+            if [[ $found_prod -eq 1 && $found_test -eq 0 ]]; then
+              echo "brak projektu testowego w ${root}" >&2
+              exit 1
+            fi
+          }
+
+          if [[ -d src/services ]]; then
+            for dir in src/services/*; do
+              [[ -d $dir ]] || continue
+              check_tree "$dir"
+            done
+            for csproj in src/services/*.csproj; do
+              [[ -f $csproj ]] || continue
+              if ! is_test_project "$csproj"; then
+                echo "brak projektu testowego w src/services" >&2
+                exit 1
+              fi
+            done
+          fi
+          check_tree src/gateway
+          check_tree src/shared
+          if [[ -d src ]]; then
+            for dir in src/*; do
+              [[ -d $dir ]] || continue
+              case "$dir" in
+                src/services|src/gateway|src/shared) continue ;;
+              esac
+              check_tree "$dir"
+            done
+            for csproj in src/*.csproj; do
+              [[ -f $csproj ]] || continue
+              if ! is_test_project "$csproj"; then
+                echo "brak projektu testowego w src" >&2
+                exit 1
+              fi
+            done
+          fi
+
+          projects=()
+          while IFS= read -r csproj; do
+            [[ -z $csproj ]] && continue
+            if is_test_project "$csproj"; then
+              projects+=("$csproj")
+            fi
+          done < <(find src \( -path '*/bin' -o -path '*/obj' \) -prune -o -name '*.csproj' -print | sort)
+          if [[ ${#projects[@]} -eq 0 ]]; then
+            echo "brak projektu testowego" >&2
+            exit 1
+          fi
+
+          export PATH="${PATH}:${HOME}/.dotnet/tools"
+          dotnet tool install --global dotnet-sonarscanner --version "$scanner_version"
+          dotnet tool install --global dotnet-coverage --version "$coverage_version"
+
+          report_dir=$(mktemp -d)
+          report_file="${report_dir}/coverage.xml"
+          lcov_list=""
+          if [[ -d src/clients ]]; then
+            lcov_list=$(find src/clients -name lcov.info -print | tr '\n' ',' | sed 's/,$//')
+          fi
+
+          if [[ ! -s "${SONAR_TOKEN_FILE}" ]]; then
+            echo "brak tokenu skanera" >&2
+            exit 1
+          fi
+          set +x
+          SONAR_TOKEN=$(<"${SONAR_TOKEN_FILE}")
+          export SONAR_TOKEN
+          echo "::add-mask::${SONAR_TOKEN}"
+          begin_args=(
+            /k:jjdevhub
+            /s:.github/sonar/sonar-project.properties
+            /d:sonar.host.url="${SONAR_HOST_URL}"
+            /d:sonar.token="${SONAR_TOKEN}"
+            /d:sonar.cs.vscoveragexml.reportsPaths="${report_file}"
+          )
+          if [[ -n $lcov_list ]]; then
+            begin_args+=("/d:sonar.javascript.lcov.reportPaths=${lcov_list}")
+          fi
+          dotnet sonarscanner begin "${begin_args[@]}"
+
+          total=0
+          index=0
+          reports=()
+          for csproj in "${projects[@]}"; do
+            index=$((index + 1))
+            log=$(mktemp)
+            results=$(mktemp -d)
+            report="${report_dir}/part-${index}.xml"
+            set +e
+            dotnet-coverage collect \
+              --output "$report" \
+              --output-format xml \
+              --nologo \
+              -- dotnet test "$csproj" \
+                --configuration Release \
+                --filter "$filter" \
+                --nologo \
+                --results-directory "$results" \
+                --logger "trx;LogFileName=tests.trx" \
+                --logger "console;verbosity=minimal" >"$log" 2>&1
+            status=$?
+            set -e
+            cat "$log"
+            if [[ $status -ne 0 ]]; then
+              exit "$status"
+            fi
+            if [[ ! -s $report ]]; then
+              echo "brak raportu pokrycia" >&2
+              exit 1
+            fi
+            reports+=("$report")
+            count=""
+            if [[ -f ${results}/tests.trx ]]; then
+              line=$(grep -m 1 '<Counters total="' "${results}/tests.trx" || true)
+              if [[ -n $line ]]; then
+                count=${line#*total=\"}
+                count=${count%%\"*}
+              fi
+            fi
+            if [[ -z $count ]]; then
+              line=$(grep -E 'Total tests:[[:space:]]*[0-9]+' "$log" | tail -n 1 || true)
+              if [[ -n $line ]]; then
+                count=${line##* }
+              fi
+            fi
+            if [[ -z $count ]]; then
+              count=0
+            fi
+            total=$((total + count))
+          done
+          if [[ $total -eq 0 ]]; then
+            echo "filtr jednostkowy nie znalazł testu" >&2
+            exit 1
+          fi
+
+          if [[ ${#reports[@]} -eq 1 ]]; then
+            cp -- "${reports[0]}" "$report_file"
+          else
+            dotnet-coverage merge --output "$report_file" --output-format xml --nologo "${reports[@]}"
+          fi
+          if [[ ! -s $report_file ]]; then
+            echo "brak raportu pokrycia" >&2
+            exit 1
+          fi
+
+          dotnet sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
+
+      - name: Analyze client
+        if: steps.layout.outputs.mode == 'client'
+        env:
+          SONAR_TOKEN_FILE: ${{ runner.temp }}/sonar-token
+        run: |
+          set -euo pipefail
+          version=8.3.0.16463
+          sha=565c5040aa77d35da4e1d64c48184174f3e7444ad6a99f23335a39223587bb56
+          archive=$(mktemp)
+          dest=$(mktemp -d)
+          url="https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${version}-linux-x64.zip"
+          curl --silent --show-error --fail --location --output "$archive" "$url"
+          echo "${sha}  ${archive}" | sha256sum -c -
+          unzip -q "$archive" -d "$dest"
+          scanner=$(find "$dest" -type f -name sonar-scanner -print -quit)
+          if [[ -z $scanner ]]; then
+            echo "brak skanera CLI" >&2
+            exit 1
+          fi
+          chmod +x "$scanner"
+          lcov_list=""
+          if [[ -d src/clients ]]; then
+            lcov_list=$(find src/clients -name lcov.info -print | tr '\n' ',' | sed 's/,$//')
+          fi
+          if [[ ! -s "${SONAR_TOKEN_FILE}" ]]; then
+            echo "brak tokenu skanera" >&2
+            exit 1
+          fi
+          set +x
+          SONAR_TOKEN=$(<"${SONAR_TOKEN_FILE}")
+          export SONAR_TOKEN
+          echo "::add-mask::${SONAR_TOKEN}"
+          scanner_args=(
+            "-Dsonar.host.url=${SONAR_HOST_URL}"
+            "-Dsonar.token=${SONAR_TOKEN}"
+            -Dproject.settings=.github/sonar/sonar-project.properties
+          )
+          if [[ -n $lcov_list ]]; then
+            scanner_args+=("-Dsonar.javascript.lcov.reportPaths=${lcov_list}")
+          fi
+          "$scanner" "${scanner_args[@]}"
+
+      - name: Stop SonarQube
+        if: always() && steps.server.outputs.started == 'true'
+        run: docker compose -p jjdevhub-sonarqube -f compose/sonarqube/compose.yml down -v
