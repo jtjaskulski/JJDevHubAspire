@@ -3,9 +3,9 @@
 Poprzedni numer, [Bramki](02-bramki.md), rozdziela kompilację i trzy piętra testów.
 Następny, [Zależności i obrazy](04-zaleznosci-i-obrazy.md), czyta lockfile i warstwy obrazu.
 Ten numer dodaje skan kodu CodeQL jako job `codeql`. Job jest wymagany na pull request do
-`release` i do `main`. Szuka podatności w kodzie, który sami piszemy. Podatności bibliotek i
-obrazów zostawia numerowi `04`. Styl i część reguł jakości zostawia numerowi
-[05-sonarqube.md](05-sonarqube.md).
+`develop`, do `release` i do `main`. Szuka podatności w kodzie, który sami piszemy.
+Podatności bibliotek i obrazów zostawia numerowi `04`. Styl i część reguł jakości zostawia
+numerowi [05-sonarqube.md](05-sonarqube.md).
 
 Scenariusz, który bez tej ramy się rozpada, ma zielony tytuł, zielony test i alert schowany
 w zakładce. Pull request News niesie `feat(news): publish article revision`. `pr-title` jest
@@ -14,8 +14,8 @@ dane z żądania dochodzą do złożenia ścieżki albo do wywołania kryptograf
 powinno ich widzieć. CodeQL w zestawie `security-extended` umie pokazać tę drogę. Domyślna
 akcja analizy potrafi przy tym skończyć się sukcesem i zostawić alert w zakładce Security.
 Na prywatnym repozytorium ta zakładka wymaga GitHub Code Security. Przycisk scalenia zostaje
-zielony. Promocja jedzie na `release`, a potem tag `news-v…` opisuje publikację, której test
-nie umiał złapać, bo test nie śledzi źródła i ujścia.
+zielony. Squash wpuszcza na `develop` publikację, której test nie umiał złapać, bo test nie
+śledzi źródła i ujścia. Promocja i tag `news-v…` powtarzają tę samą dziurę.
 
 Werdykt tego numeru jest w pliku SARIF z przebiegu, nie w zakładce. `codeql-gate.sh` czyta
 `security-severity`. Wynik od `7.0` włącznie kończy job kodem `1`. Fixture `high.sarif` ma
@@ -26,16 +26,17 @@ tagu `security` skrypt ignoruje.
 
 Plik do dodania to `.github/workflows/codeql.yml`. W drzewie przed tym numerem go nie ma.
 Plan niżej mówi, jak go utworzyć. W repozytorium może nie być jeszcze `*.cs`, `*.js`, `*.ts`
-ani `*.tsx`. Wtedy pierwszy pull request na `release` pokazuje zielony check `codeql` i
+ani `*.tsx`. Wtedy pierwszy pull request na `develop` pokazuje zielony check `codeql` i
 linię `no material for codeql`. Pierwszy plik C# albo TypeScript w którymś z kolejnych
 numerów nie wymaga nowego workflow. Ten sam job przechodzi z pustego sukcesu w prawdziwy
 skan.
 
 ## Po co
 
-Bramka z [02-bramki.md](02-bramki.md) na `release` ma obejmować skan kodu, zanim zmiana
-zbliży się do tagu. Sam test jednostkowy sprawdza zachowanie, które ktoś napisał. Nie
-śledzi, czy dane z żądania dochodzą do wywołania, którego nie powinno ich widzieć. Dla
+Bramka z [02-bramki.md](02-bramki.md) na `develop` ma obejmować skan kodu, zanim squash
+zapisze zmianę na długiej gałęzi. Sam test jednostkowy sprawdza zachowanie, które ktoś
+napisał. Nie śledzi, czy dane z żądania dochodzą do wywołania, którego nie powinno ich
+widzieć. Dla
 publikacji News znaczy to różnicę między zielonym `[Fact]` a drogą, którą widać dopiero w
 zapytaniu o przepływ. Tytuł `feat(news): publish article revision` mówi numerowi
 [07-wersje.md](07-wersje.md), który komponent podbić. Nie mówi, czy żądanie składa ścieżkę.
@@ -50,10 +51,10 @@ ze zmiennej. Obniżenie progu wymaga zmiany YAML, którą zobaczy job `action-pi
 
 Brak plików, które CodeQL umie analizować, kończy job sukcesem. Job przy tym istnieje, więc
 ruleset nie czeka w nieskończoność. To jest ten sam zwyczaj co `no material for build` w
-numerze `02`. Linia brzmi `no material for codeql`. Bez niej zielony check na promocji samej
-dokumentacji wygląda jak skan, którego nie było. Z nią widać, że języków nie znaleziono i
+numerze `02`. Linia brzmi `no material for codeql`. Bez niej zielony check na pull requeście
+samej dokumentacji wygląda jak skan, którego nie było. Z nią widać, że języków nie znaleziono i
 `init` nie został wywołany. Pierwszy `*.cs` w News włącza analizę od następnego pull
-requestu na `release` i na `main`, bez nowego pliku workflow.
+requestu na `develop`, na `release` i na `main`, bez nowego pliku workflow.
 
 Skan nie zastępuje bramki jakości z SonarQube i nie czyta lockfile w poszukiwaniu CVE
 biblioteki. Te trzy rzeczy mogą naraz być czerwone z trzech różnych powodów. Tak ma być.
@@ -61,13 +62,12 @@ Zielony test i zielony CodeQL przy wysokim CVE w paczce to luka numeru `04`, nie
 Zielony CodeQL przy czerwonym teście jednostkowym to luka numeru `02`. Ten numer zamyka
 trzecią: zielony test, zielony tytuł i alert, który widać tylko w zakładce.
 
-Job nie stoi na `develop`. Stoi na `release` i powtarza się na `main`, żeby ruleset `main`
-dostał świeży status, a nie wspomnienie z poprzedniej gałęzi. Szkic
-`feat(news): publish article revision` na `develop` nie czeka na bazę zapytań. Czeka, gdy ta
-sama zmiana idzie w promocji. `feature/lesson_markdown` nadal pada kodem `1` w numerze `01`
-i do CodeQL nie dochodzi. Na pull requeście do `develop` ten workflow w ogóle nie startuje,
-także przy poprawnej nazwie `feature/lesson-markdown`. Startuje na promocji `develop` →
-`release`.
+Job stoi na `develop` i powtarza się na `release` oraz na `main`, żeby każdy ruleset dostał
+świeży status, a nie wspomnienie z poprzedniej gałęzi. Szkic
+`feat(news): publish article revision` na `develop` czeka na bazę zapytań.
+`feature/lesson_markdown` nadal pada kodem `1` w numerze `01` i do CodeQL nie dochodzi.
+Poprawna nazwa `feature/lesson-markdown` przy celu `develop` startuje ten workflow. Ten sam
+job startuje na promocji `develop` → `release` i `release` → `main`.
 
 ## Dlaczego ta technologia
 
@@ -93,15 +93,17 @@ silnik reguł w tym samym checku dublowałby werdykt. Dwa czerwone powody na jed
 mówią, który ruleset czyta. Zostaje jeden silnik i jedna nazwa checka. Reguły lokalne, jeśli
 kiedyś dojdą, nie zastępują zestawu `security-extended` i nie obniżają progu `7.0`.
 
-Koszt zostaje w czasie przebiegu. CodeQL jest wyraźnie dłuższy niż `dotnet build`. Dlatego
-job nie stoi na `develop`. Stoi na `release` i powtarza się na `main`. `timeout-minutes` to
-`30`. Powtórzenie na `main` jest świeżym statusem dla rulesetu, nie kopią logu z `release`.
-W międzyczasie na `release` mógł wejść inny squash. Stary zielony `codeql` nie opisuje głowy
-promocji. To jest ten sam rygor świeżości co przy teście jednostkowym w numerze `02`.
+Koszt zostaje w czasie przebiegu. CodeQL jest wyraźnie dłuższy niż `dotnet build`.
+Czekanie z tym skanem do `release` odpadło. Droga z żądania do złożenia ścieżki siedziałaby
+wtedy na `develop` przez kilka squashy, a tag widziałby ją dopiero przy promocji.
+`timeout-minutes` to `30`. Powtórzenie na `release` i na `main` jest świeżym statusem dla
+rulesetu, nie kopią logu z `develop`. W międzyczasie na `develop` mógł wejść inny squash.
+Stary zielony `codeql` nie opisuje głowy promocji. To jest ten sam rygor świeżości co przy
+teście jednostkowym w numerze `02`.
 
 Ekstraktor startuje tylko dla języka, który w drzewie ma pliki. Sztywna lista
 `csharp,javascript-typescript` od pierwszego commita tego numeru odpadła. Sam workflow
-padałby na braku kodu i ruleset `release` stałby w miejscu, zanim powstanie usługa. Pusty
+padałby na braku kodu i ruleset `develop` stałby w miejscu, zanim powstanie usługa. Pusty
 sukces z linią `no material for codeql` trzyma check przy życiu. Pierwszy plik `*.cs` włącza
 analizę od razu, także gdy to jeszcze nie jest pełna usługa. To jest ten sam cel co w
 numerze `02`: pierwszy pull request, który już ma materiał, jest bramkowany bez osobnego
@@ -164,9 +166,9 @@ uploadu nie zmienia kodu z kroku bramki. Job jako całość nie jest skipped.
 Trzymanie blokady wyłącznie w „code scanning merge protection” wyklikanym w ustawieniach
 odpadło. To nie ląduje w `.github/rulesets` jako nazwa `codeql` i łatwo rozjeżdża się z
 resztą bramek. Numer `02` trzyma nazwy checków w JSON. Ten numer dopisuje `codeql` do
-`release.json` i `main.json` w tym samym scaleniu co workflow. Do `develop.json` go nie
-dopisuje. Po syncu pull request do `develop` nie czeka na ten check. Pull request do
-`release` czeka.
+`develop.json`, `release.json` i `main.json` w tym samym scaleniu co workflow. Po syncu
+pull request do `develop` czeka na ten check. Pull request do `release` i do `main` też
+czeka, bo ten sam workflow raportuje tam świeży status.
 
 Koszt zostaje w kilkunastu liniach skryptu, które zamieniają SARIF na kod wyjścia. Suchy
 przebieg na `low.sarif` i `high.sarif` sprawdza próg bez uruchamiania całego skanu i bez
@@ -191,8 +193,8 @@ kodem `0` i linią `no material for codeql`. Kod `2` jest tylko dla błędu uży
 
 Gdy lista jest pusta, kolejne kroki skanu się nie wykonują, a job kończy się sukcesem.
 `init` nie startuje. Ekstraktor uruchomiony „na zapas” dla języka bez plików potrafi
-zakończyć się błędem i zablokować promocję dokumentacji. To jest ten sam błąd co sztywna
-lista języków w YAML: ruleset `release` stoi, choć nie ma czego analizować. Gdy lista ma
+zakończyć się błędem i zablokować pull request dokumentacji. To jest ten sam błąd co sztywna
+lista języków w YAML: ruleset `develop` stoi, choć nie ma czego analizować. Gdy lista ma
 jedną pozycję, `init` dostaje tę jedną. Web z samym TypeScript nie uruchamia ekstraktora C#.
 Usługa z samym C# nie uruchamia ekstraktora JavaScript.
 
@@ -204,13 +206,17 @@ wyklucza się `src/**`. Nie wyklucza się testów. Zapytanie o test potrafi poka
 wyłącza walidację. Jeśli któreś zapytanie hałasuje tylko w projekcie testowym, wykluczenie
 dopisuje się ścieżką projektu testowego i zdaniem powodu, nie całym `src`.
 
-Build C#, gdy język wszedł na listę, to `dotnet build --configuration Release`. Ta sama
-konfiguracja co job `build`. `autobuild` zostaje wyłączony dla C#, żeby nie było drugiej,
-innej kompilacji. Dwie kompilacje potrafią dać dwa różne zestawy ostrzeżeń i dwa różne
-werdykty przy jednym checku `codeql`. SDK bierze się z `global.json`, tak jak w numerze
-`02`. Gdy projekt C# jest, a `global.json` nie ma, kompilacja pada z tego samego powodu co
-`build`. Dla `javascript-typescript` zostaje wbudowane wykrycie CodeQL, bez osobnego bundla.
-Skan ma widzieć źródło, nie paczkę z `dist/`.
+Build C#, gdy język wszedł na listę, idzie po każdym śledzonym `*.csproj`:
+`dotnet build <projekt> --configuration Release`. Goły `dotnet build` w korzeniu odpada, bo
+w korzeniu nie ma solution, a projekty leżą w podkatalogach. `autobuild` zostaje wyłączony
+dla C#, żeby nie było drugiej, innej kompilacji. Dwie kompilacje potrafią dać dwa różne
+zestawy ostrzeżeń i dwa różne werdykty przy jednym checku `codeql`. SDK bierze się z
+`global.json`. Wersja to `11.0.100-rc.3.26522.148`, z `allowPrerelease` i
+`rollForward: latestFeature`, bo projekty celują w `net11.0`, a obraz runnera tego SDK nie
+niesie. Job instaluje je krokiem `setup-dotnet` z `global-json-file: global.json`, zanim
+zacznie budować. Gdy projekt C# jest, a `global.json` nie ma, kompilacja pada z tego samego
+powodu co `build`. Dla `javascript-typescript` zostaje wbudowane wykrycie CodeQL, bez
+osobnego bundla. Skan ma widzieć źródło, nie paczkę z `dist/`.
 
 Checkout bierze `fetch-depth: 2`. Tyle wystarcza do diffu pull requestu. Pełna historia nie
 jest potrzebna. Job nazwy z numeru `01` bierze `fetch-depth: 0`, bo liczy przodków. Ten job
@@ -231,7 +237,8 @@ wersji. Job `action-pins` ma to zobaczyć.
 | `.github/scripts/codeql-gate.sh` | czyta SARIF i stosuje próg `7.0` |
 | `.github/codeql/fixtures/high.sarif` | jeden wynik `security-severity` równy `7.0` |
 | `.github/codeql/fixtures/low.sarif` | jeden wynik `security-severity` równy `3.0` |
-| `.github/rulesets/release.json` | dopisany check `codeql` |
+| `.github/rulesets/develop.json` | dopisany check `codeql` |
+| `.github/rulesets/release.json` | ten sam check |
 | `.github/rulesets/main.json` | ten sam check |
 
 `codeql-config.yml` wyklucza:
@@ -246,11 +253,12 @@ Wyzwalacz:
 ```yaml
 on:
   pull_request:
-    branches: [release, main]
+    branches: [develop, release, main]
 ```
 
-Bez `push` na `develop`. Bez `paths`. `timeout-minutes` to `30`. Nie ma `self-hosted` i nie
-ma `pull_request_target`. Check `codeql` nie wchodzi do `develop.json`.
+Bez `push`. Bez `paths`. `timeout-minutes` to `30`. Nie ma `self-hosted` i nie ma
+`pull_request_target`. Check `codeql` wchodzi do `develop.json`, `release.json` i
+`main.json`.
 
 Skrypt bramki wyciąga `security-severity` z `runs[].results[]` oraz z `properties`, zależnie
 od tego, gdzie dana paczka zapytań je kładzie. Na końcu wypisuje liczbę wyników blokujących.
@@ -286,8 +294,9 @@ Utwórz `codeql.yml` z jobem o nazwie `codeql`. Kroki:
    nie wykonują, a job kończy się sukcesem.
 3. `init` z językami z kroku 2, z `queries: security-extended` i z `config-file` wskazującym
    `.github/codeql/codeql-config.yml`.
-4. Dla C#: `dotnet build --configuration Release`. SDK z `global.json`. `autobuild` dla C#
-   wyłącz.
+4. Dla C#: zainstaluj SDK z `global.json` krokiem `setup-dotnet`, potem
+   `dotnet build <projekt> --configuration Release` na każdym śledzonym `*.csproj`.
+   `autobuild` dla C# wyłącz. Brak `global.json` przy wykrytym C# kończy krok kodem `1`.
 5. `analyze` z wyjściem SARIF do ustalonej ścieżki.
 6. `codeql-gate.sh`.
 7. Upload SARIF, gdy zmienna przebiegu `CODEQL_UPLOAD` nie jest ustawiona na `false`.
@@ -295,8 +304,8 @@ Utwórz `codeql.yml` z jobem o nazwie `codeql`. Kroki:
 
 `runs-on` ustaw na `ubuntu-latest`. `timeout-minutes` ustaw na `30`. `permissions` na pliku
 zostaw puste. Job dostaje `contents: read`. `security-events: write` dodaj tylko na kroku
-uploadu, gdy ten krok jest w przebiegu. Wyzwalacz to `pull_request` na `release` i `main`.
-Nie dodawaj `paths`, `pull_request_target` ani `push` na `develop`. Nie dodawaj języka na
+uploadu, gdy ten krok jest w przebiegu. Wyzwalacz to `pull_request` na `develop`, `release`
+i `main`. Nie dodawaj `paths`, `pull_request_target` ani `push`. Nie dodawaj języka na
 sztywno w YAML. Każdą akcję `uses` przypnij do pełnego SHA i dopisz komentarz wersji.
 Artefakt przebiegu nazwij `codeql-sarif` i ustaw retencję na 14 dni.
 
@@ -308,10 +317,10 @@ wykluczaj `src/**`. Nie wykluczaj testów całym katalogiem `src`.
 
 ### 5. Dopisać check do rulesetów
 
-W tym samym scaleniu dopisz `codeql` do `.github/rulesets/release.json` i
-`.github/rulesets/main.json`. Nie dopisuj go do `develop.json`. Po syncu pull request do
-`develop` nie czeka na ten check. Pull request do `release` czeka. Nie dopisuj nazwy w
-scaleniu, które jeszcze nie zawiera `codeql.yml`.
+W tym samym scaleniu dopisz `codeql` do `.github/rulesets/develop.json`,
+`.github/rulesets/release.json` i `.github/rulesets/main.json`. Po syncu pull request do
+`develop` czeka na ten check. Pull request do `release` i do `main` też czeka. Nie dopisuj
+nazwy w scaleniu, które jeszcze nie zawiera `codeql.yml`.
 
 ### 6. Zostawić wzorzec SARIF do suchego przebiegu
 
@@ -327,14 +336,14 @@ Służą do testu `codeql-gate.sh`.
 | `codeql-languages.sh` | job `codeql`, suchy przebieg | nie wołać `init` bez języka |
 | `codeql-gate.sh` | job `codeql`, suchy przebieg | zamienić SARIF na kod wyjścia |
 | `codeql-config.yml` | `init` | te same wykluczenia lokalnie i w CI |
-| `codeql.yml` | GitHub na pull request do `release` i `main` | check `codeql` |
+| `codeql.yml` | GitHub na pull request do `develop`, `release` i `main` | check `codeql` |
 | `fixtures/*.sarif` | test lokalny bramki | próg bez uruchamiania całego skanu |
-| `release.json`, `main.json` | sync z numeru `01` | check wymagany |
+| `develop.json`, `release.json`, `main.json` | sync z numeru `01` | check wymagany |
 
 Job `build` z numeru `02` nie woła CodeQL. Osoba czytająca czerwony pull request ma
-zobaczyć, który check padł. Zielony `unit-tests` przy czerwonym `codeql` zostawia promocję
-`develop` → `release` zablokowaną, choć tytuł `feat(news): publish article revision` jest
-poprawny.
+zobaczyć, który check padł. Zielony `unit-tests` przy czerwonym `codeql` zostawia pull
+request na `develop` zablokowany, choć tytuł `feat(news): publish article revision` jest
+poprawny. Ta sama czerwień powtarza się na promocji `develop` → `release`.
 
 ## Testy
 
@@ -384,13 +393,13 @@ echo $?
 ```
 
 Kod `1`. Nazwa `feature/lesson-markdown` przy celu `develop` daje kod `0`. CodeQL na takim
-pull requeście do `develop` nie startuje, bo wyzwalaczem są `release` i `main`. Na promocji
-`develop` → `release` job startuje. Przy braku źródeł kończy się `no material for codeql`.
-Przy obecności `*.cs` kończy się wynikiem bramki SARIF.
+pull requeście do `develop` startuje. Przy braku źródeł kończy się `no material for codeql`.
+Przy obecności `*.cs` kończy się wynikiem bramki SARIF. Ten sam job startuje na promocji
+`develop` → `release` i na `release` → `main`.
 
 Pełnego skanu CodeQL nie trzeba ciągnąć w pętli nad każdą poprawką dokumentacji. Raz na
 gałęzi, która już ma plik `*.cs`, lokalnie można odpalić ten sam workflow przez runner
-GitHuba. Otwarty pull request do `release` ma w logu albo `no material for codeql`, albo
+GitHuba. Otwarty pull request do `develop` ma w logu albo `no material for codeql`, albo
 podsumowanie liczby alertów od `7.0`. Upload, który padnie brakiem produktu, nie zmienia
 tego kodu, bo krok ma `continue-on-error: true`.
 
@@ -400,8 +409,8 @@ Ten numer zostawia pin w pliku od pierwszego scalenia workflowu.
 
 ## Zasady
 
-- Check nazywa się `codeql` i jest wymagany na `release` oraz `main`.
-- Na `develop` ten check nie jest wymagany i workflow tam nie startuje.
+- Check nazywa się `codeql` i jest wymagany na `develop`, `release` oraz `main`.
+- Workflow startuje na pull requeście do tych trzech gałęzi. Na `push` nie startuje.
 - Zestaw zapytań to `security-extended`.
 - Blokuje `security-severity` od `7.0` włącznie. Alert bezpieczeństwa bez pola wagi też
   blokuje.
@@ -422,7 +431,7 @@ Ten numer zostawia pin w pliku od pierwszego scalenia workflowu.
 ## Poza zakresem
 
 - Które checki w ogóle są wymagane na której gałęzi, jest w [02-bramki.md](02-bramki.md).
-  Ten numer dopisuje tylko `codeql` do `release` i `main`.
+  Ten numer dopisuje `codeql` do `develop`, `release` i `main`.
 - CVE w pakiecie NuGet, npm i w warstwach obrazu są w
   [04-zaleznosci-i-obrazy.md](04-zaleznosci-i-obrazy.md). Ten numer nie czyta lockfile i nie
   woła Trivy.
@@ -444,8 +453,9 @@ treści zapytań poszczególnych CVE.
 
 - [About code scanning with CodeQL](https://docs.github.com/en/code-security/code-scanning/introduction-to-code-scanning/about-code-scanning-with-codeql).
   Wiążące jest to, że CodeQL buduje bazę po kodzie i uruchamia zapytania o przepływ, a nie
-  tylko szuka wzorca w linii. Dotyczy joba `codeql` na `release` i `main` oraz tego, że skan
-  nie czyta lockfile. Ze źródła nie bierzemy zastąpienia testu jednostkowego tym skanem.
+  tylko szuka wzorca w linii. Dotyczy joba `codeql` na `develop`, `release` i `main` oraz
+  tego, że skan nie czyta lockfile. Ze źródła nie bierzemy zastąpienia testu jednostkowego
+  tym skanem.
   Zielony `[Fact]` i czerwony `codeql` mogą współistnieć, a CVE paczki zostaje w numerze
   `04`.
 - [CodeQL query suites](https://docs.github.com/en/code-security/code-scanning/managing-your-code-scanning-configuration/codeql-query-suites).
@@ -461,8 +471,9 @@ treści zapytań poszczególnych CVE.
 - [CodeQL action](https://github.com/github/codeql-action). Wiążące są wejścia `init` i
   `analyze`: języki, `queries`, plik konfiguracji i wyjście SARIF. Dotyczy kroków workflowu
   przypiętych do pełnego SHA. Ze źródła nie bierzemy `autobuild` dla C#. Kompilacja C# to
-  `dotnet build --configuration Release`, ta sama co job `build`, a dla
-  `javascript-typescript` zostaje wykrycie źródła, bez bundla z `dist/`.
+  `dotnet build` każdego śledzonego `*.csproj` w konfiguracji `Release`, po instalacji SDK
+  z `global.json`. Dla `javascript-typescript` zostaje wykrycie źródła, bez bundla z
+  `dist/`.
 - [Customizing code scanning](https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/customizing-your-advanced-setup-for-code-scanning).
   Wiążące są identyfikatory języków i `paths-ignore` w pliku konfiguracji. Dotyczy
   wykrywania `csharp` oraz `javascript-typescript` oraz wykluczeń `docs/**`, `versions/**`,
@@ -496,9 +507,10 @@ treści zapytań poszczególnych CVE.
   płytkość `1` ucięłaby diff, którego analiza pull requestu używa.
 - [Require status checks](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches#require-status-checks-before-merging).
   Wiążące jest to, że wymieniony check musi zaraportować sukces, inaczej scalenie stoi.
-  Dotyczy dopisania `codeql` do `release.json` i `main.json` w scaleniu, które dodaje
-  workflow. Ze źródła nie bierzemy dopisania tej nazwy do `develop.json`. Na `develop`
-  workflow nie startuje i nazwa nie może być wymagana.
+  Dotyczy dopisania `codeql` do `develop.json`, `release.json` i `main.json` w scaleniu,
+  które dodaje workflow. Ze źródła nie bierzemy pominięcia tej nazwy na `develop`. Workflow
+  tam startuje i nazwa jest wymagana. Inaczej squash wpuściłby drogę, którą widać dopiero
+  przy promocji.
 - [Troubleshooting required status checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
   Wiążące jest to, że filtr `paths` zostawia wymagany check w oczekiwaniu. Dotyczy zakazu
   `paths` w `codeql.yml`, także na promocji, która dotyka tylko dokumentacji. Ze źródła nie
@@ -526,7 +538,7 @@ treści zapytań poszczególnych CVE.
 - `codeql-languages.sh` w drzewie bez C# i TypeScript wypisuje `no material for codeql` i
   kończy się kodem `0`.
 - `codeql-gate.sh` na `low.sarif` kończy się kodem `0`, a na `high.sarif` kodem `1`.
-- `release.json` i `main.json` zawierają `codeql`, a `develop.json` go nie zawiera.
+- `develop.json`, `release.json` i `main.json` zawierają `codeql`.
 - `check-branch-name.sh` dla `feature/lesson_markdown` kończy się kodem `1`.
 - W `codeql.yml` każdy `uses` ma pełny SHA i komentarz wersji.
 - `queries` w `init` to `security-extended`. Progu nie ma w zmiennej workflow.

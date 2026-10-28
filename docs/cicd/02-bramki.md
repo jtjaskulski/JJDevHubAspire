@@ -16,13 +16,12 @@ wchodzi na `develop`, bo ruleset widzi tylko nazwę i tytuł. Numer
 test nie przeszedł. Na `main` powstaje tag `news-v…`, a [16-deploy.md](16-deploy.md) wgrywa
 obraz publikacji, która pada. Zielony tytuł nie naprawia czerwonego testu.
 
-Drugi rozjazd jest na promocji. Ten sam tytuł przechodzi test jednostkowy na `develop`, a
-test integracyjny pada, bo publikacja nie widzi bazy, którą kontener podnosi dopiero na
-`release`. Para `develop` → `main` jest już odrzucona przez `branch-name`. To nie wystarcza
-rulesetowi `main`. Pełny ciąg na `main` jest listą checków, nie wspomnieniem, że „kiedyś na
-`release` było zielono”. Starszy zielony przebieg integracji nie opisuje głowy, która doszła
-później. Głową promocji jest `develop` albo `release`. Nowy commit na tej głowie powtarza
-bramkę. `develop` przy promocji nie jest rebase'owane.
+Drugi rozjazd jest na promocji. Test jednostkowy, integracyjny i wydajnościowy już padły
+albo przeszły na `develop`. To nie wystarcza rulesetowi `release` i `main`. Pełny ciąg na
+dalszej gałęzi jest listą checków, nie wspomnieniem, że „kiedyś na `develop` było zielono”.
+Starszy zielony przebieg nie opisuje głowy, która doszła później. Głową promocji jest
+`develop` albo `release`. Nowy commit na tej głowie powtarza bramkę. `develop` przy promocji
+nie jest rebase'owane.
 
 Trzeci rozjazd jest w pull requeście, który dotyka tylko `docs/cicd/02-bramki.md`. W drzewie
 nie ma jeszcze `*.csproj`. Job `build` ma wypisać `no material for build` i skończyć się
@@ -40,9 +39,8 @@ dojściu pierwszego `csproj`, kompiluje albo pada.
 
 [01-galezie.md](01-galezie.md) zamyka nazwę i tytuł. Zostaje luka, którą widać na rewizji
 artykułu: zielony `feat(news): publish article revision` może nieść kod, który się nie
-kompiluje, test, który pada, albo zmianę wpuszczoną na `main` z pominięciem testu
-integracyjnego. Tytuł wybierze kiedyś tag `news`. Bramka ma zatrzymać ten tag, zanim
-powstanie, jeśli publikacja nie przechodzi piętra, które do tej gałęzi należy. Sam plik
+kompiluje albo test, który pada. Tytuł wybierze kiedyś tag `news`. Bramka ma zatrzymać
+squash na `develop`, jeśli publikacja nie przechodzi któregoś z trzech pięter. Sam plik
 wersji jeszcze nie powstaje w tym numerze. Powstaje obowiązek statusu, bez którego wersja
 nie ma prawa ruszyć.
 
@@ -50,15 +48,16 @@ Trzy bramki układają koszt sprawdzenia według dojrzałości zmiany.
 
 | Cel | Przed scaleniem |
 | --- | --- |
-| `develop` | build, test jednostkowy, format, sekret, podatność, nazwa, tytuł |
-| `release` | oraz integracja, CodeQL, SonarQube, skan obrazu |
-| `main` | oraz NBomber, SBOM, atestacja, tag zmienionych |
+| `develop` | build, trzy piętra testów, format, CodeQL, sekret, podatność, nazwa, tytuł |
+| `release` | oraz SonarQube, skan obrazu |
+| `main` | oraz SBOM, atestacja, tag zmienionych |
 
-Na `develop` prawdą ma być to, że kod dotkniętych komponentów się buduje, test jednostkowy
-przechodzi, format jest czysty, sekret i podatność zależności są ocenione, a nazwa i tytuł
-są poprawne. Na `release` dochodzą test integracyjny, CodeQL, SonarQube i skan obrazu, gdy
-jest Dockerfile. Na `main` dochodzą test wydajności NBomber, SBOM, atestacja i tag tylko
-zmienionych komponentów. Sekret, podatność, CodeQL, SonarQube, skan, SBOM, atestacja i tag
+Na `develop` prawdą ma być to, że kod dotkniętych komponentów się buduje, test jednostkowy,
+integracyjny i wydajnościowy przechodzą, format jest czysty, CodeQL jest oceniony, sekret i
+podatność zależności są ocenione, a nazwa i tytuł są poprawne. Na `release` dochodzą
+SonarQube i skan obrazu, gdy jest Dockerfile. Na `main` dochodzą SBOM, atestacja i tag tylko
+zmienionych komponentów. Trzy piętra testów i CodeQL powtarzają się na dalszych gałęziach.
+Sekret, podatność, CodeQL, SonarQube, skan, SBOM, atestacja i tag
 raportują joby z numerów `03`–`07`. Ten numer rezerwuje dla nich miejsce w JSON w scaleniu,
 które dodaje ich workflow. Samych tych workflowów tutaj nie ma.
 
@@ -102,36 +101,36 @@ integracyjny ani pod test wydajności.
 
 ### Trzy progi zamiast jednego workflowa
 
-Jedna lista checków na wszystkich gałęziach jest jednym workflowem tylko z pozoru. Jedna
-lista na `main`, wymagana już na `develop`, spowalnia każdy szkic o CodeQL, SonarQube i
-NBomber. Rewizja artykułu, która jeszcze nie ma prawa do tagu, czekałaby na obciążenie i na
-skan obrazu, choć Dockerfile może nie istnieć. Jedna lista tylko na `develop` wpuszcza na
-`main` zmianę, która nigdy nie widziała testu integracyjnego. Tytuł
-`feat(news): publish article revision` byłby wtedy zielony dwa razy, na nazwie i na teście
-jednostkowym, a publikacja przeciwko bazie w kontenerze nie zostałaby uruchomiona ani razu.
+Jedna lista checków na wszystkich gałęziach jest jednym workflowem tylko z pozoru. Trzy
+piętra testów stoją już na `develop`, bo zielony test jednostkowy nie widzi bazy w
+kontenerze ani scenariusza obciążenia. Czekanie z integracją do `release` i z NBomberem do
+`main` odpadło: squash wpuściłby publikację, której kontener jeszcze nie podniósł. SonarQube
+i skan obrazu zostają na `release`. SBOM, atestacja i tag zostają na `main`. Rewizja
+artykułu na `develop` nie czeka na skan obrazu, choć Dockerfile może nie istnieć. Czeka na
+trzy filtry `dotnet test`.
 
 Ręczna checklista w opisie pull requestu odpadła. Nie blokuje przycisku scalenia. Osoba może
 zaznaczyć „test integracyjny odpalony” i scalić squash, którego job nie widział. Ruleset
 czyta status checka, nie zdanie w opisie. Czwarta długa gałąź „tylko pod test wydajności”
-też odpadła. `main` już jest tym progiem. Osobna głowa obok trzech z numeru `01`
-rozjechałaby pary `branch-name` i dała drugą drogę na tag, obok `release`.
+też odpadła. Trzy piętra jadą na `develop`, a `main` powtarza je przy tagu. Osobna głowa
+obok trzech z numeru `01` rozjechałaby pary `branch-name` i dała drugą drogę na tag, obok
+`release`.
 
-Koszt, który zostaje, jest powtórzeniem tańszych jobów przy promocji `develop` → `release` →
-`main`. `build`, `unit-tests` i `format` raportują się na każdej z trzech gałęzi. Przy
-`ubuntu-latest` powtórzenie kompilacji i testu jednostkowego jest tańsze niż dziura w
-rulesecie. Dziura wygląda tak: na `develop` test przeszedł, na drodze do `main` nikt go nie
-powtórzył, a w międzyczasie doszedł squash kernela. Głowa promocji jest czubkiem `develop`
-albo `release`. Nowy commit na tej głowie zmienia SHA i stary zielony `unit-tests` jej nie
+Koszt, który zostaje, jest powtórzeniem jobów przy promocji `develop` → `release` →
+`main`. `build`, trzy piętra testów i `format` raportują się na każdej z trzech gałęzi. Przy
+`ubuntu-latest` powtórzenie jest tańsze niż dziura w rulesecie. Dziura wygląda tak: na
+`develop` test przeszedł, na drodze do `main` nikt go nie powtórzył, a w międzyczasie doszedł
+squash kernela. Głowa promocji jest czubkiem `develop` albo `release`. Nowy commit na tej
+głowie zmienia SHA i stary zielony `unit-tests` jej nie
 opisuje. Świeżość względem celu na `release` i `main` zostaje wyłączona. Włączona żądałaby
 wciągnięcia merge commita promocji z powrotem do źródła, a kierunek z numeru `01` jest
 jeden.
 
 Podział na trzy pliki workflow, a nie jeden plik z warunkiem gałęzi w środku, trzyma nazwę
-checka stabilną. `integration-tests` nie startuje na `develop`, bo wyzwalacz ma gałęzie
-`release` i `main`. Na `develop` ten check nie jest wymagany. Gdyby ten sam job był w
-workflowu odpalanym na `develop` i pomijany warunkiem, ruleset `develop` nie powinien go
-wymagać, a pomyłka w JSON wciągnęłaby oczekiwanie. Osobny plik na piętro sprawia, że brak
-przebiegu na `develop` jest skutkiem wyzwalacza, nie pominięcia wymaganego checka.
+checka stabilną. `unit-tests`, `integration-tests` i `performance` startują na `develop`,
+`release` i `main`. Gdyby job był wymagany, a wyzwalacz go pomijał, ruleset czekałby w
+nieskończoność. Osobny plik na piętro sprawia, że brak przebiegu jest skutkiem wyzwalacza,
+nie pominięcia wymaganego checka warunkiem w środku joba.
 
 Po numerze `07` listy w JSON mają być pełne. Do tego czasu każdy numer dopisuje swoje nazwy
 sam, w scaleniu, które dodaje workflow. Ten numer nie wpisuje `codeql`, `sonarqube`,
@@ -155,9 +154,8 @@ kodem `1`, bo `merge-base` z `origin/main` nie jest przodkiem `origin/develop`. 
 
 Rebase `develop` pod promocję odpadł. Głową pull requestu `develop` → `release` jest sama
 gałąź `develop`. `non_fast_forward` nie pozwala jej przepisać. Promocja jest merge
-commitem: na `release` dochodzi test integracyjny, na `main` test wydajności, a tańsze
-joby powtarzają się na tej głowie. Świeżość względem celu zostaje wyłączona na tych dwóch
-gałęziach, żeby GitHub nie żądał powrotu merge commita do źródła.
+commitem. Trzy piętra testów powtarzają się na tej głowie. Świeżość względem celu zostaje
+wyłączona na tych dwóch gałęziach, żeby GitHub nie żądał powrotu merge commita do źródła.
 
 ### `ubuntu-latest` na pull request
 
@@ -237,30 +235,28 @@ publikacji nie skleja ich w jeden werdykt.
 | Job | Filtr | Kiedy jest wymagany |
 | --- | --- | --- |
 | `unit-tests` | `Category!=Integration&Category!=Performance` | `develop`, `release`, `main` |
-| `integration-tests` | `Category=Integration` | `release`, `main` |
-| `performance` | `Category=Performance` | `main` |
+| `integration-tests` | `Category=Integration` | `develop`, `release`, `main` |
+| `performance` | `Category=Performance` | `develop`, `release`, `main` |
 
 Runner testu to xUnit i `[Fact]`. Test integracyjny, gdy już powstanie w numerach API,
-podnosi kontener sam. Test wydajnościowy używa NBomber i cechy `Category=Performance`. Nie
-blokuje pull requestu do `develop`. Szkic funkcji, w tym poprawka dokumentacji idąca tylko
-na `develop`, nie czeka na obciążenie. Na `develop` job integracyjny nie jest wymagany i
-jego workflow nie startuje. Startuje, gdy ta sama poprawka idzie na `release` albo na
-`main`.
+podnosi kontener sam. Test wydajnościowy używa NBomber i cechy `Category=Performance`.
+Trzy joby blokują pull request do `develop` i powtarzają się na `release` oraz na `main`.
+Poprawka dokumentacji, gdy w drzewie nie ma testu danej cechy, kończy te joby sukcesem.
+Nie omija ich wyzwalaczem.
 
 Osobny serwer testów poza GitHub Actions odpadł. Werdykt żyłby poza statusem, który czyta
 ruleset. Trzeba by przenieść go do checka osobnym tokenem, a token byłby sekretem w
-workflow. Joby tego numeru sekretów nie czytają. Wrzucenie NBombera do bramki `develop` też
-odpadło. Szkic `feat(news): publish article revision` nie czeka na scenariusz obciążenia
-endpointu, którego jeszcze nie ma. Piętro wydajności stoi na `main`, obok tagu. Czerwony
-NBomber zatrzymuje promocję na `main`, nie każdy commit na `develop`.
+workflow. Joby tego numeru sekretów nie czytają. Zostawienie NBombera do `main` odpadło.
+Szkic `feat(news): publish article revision` ma zobaczyć scenariusz obciążenia, gdy projekt
+testowy już go ma. Zanim projekt powstanie, job kończy się sukcesem, bo filtr nie znalazł
+testu. Czerwony NBomber zatrzymuje pull request na `develop`, a promocja powtarza ten sam
+werdykt.
 
-Koszt zostaje w czasie testu integracyjnego na `release`. Trwa dłużej niż test jednostkowy,
-dlatego nie stoi na każdej poprawce dokumentacji wchodzącej tylko na `develop`. Stoi, gdy ta
-poprawka idzie dalej. Zero testów w filtrze integracyjnym albo wydajnościowym to sukces.
-Test, który jest i pada, to porażka joba. Jeden czerwony `[Fact]` z cechą
-`Category=Integration` wystarcza, żeby zatrzymać promocję News, nawet gdy test jednostkowy
-tej samej publikacji jest zielony. Powód padnięcia jest jeden: filtr znalazł test i test nie
-przeszedł.
+Koszt zostaje w czasie testu integracyjnego i wydajnościowego na `develop`. Trwają dłużej niż
+test jednostkowy. Zero testów w filtrze integracyjnym albo wydajnościowym to sukces. Test,
+który jest i pada, to porażka joba. Jeden czerwony `[Fact]` z cechą `Category=Integration`
+wystarcza, żeby zatrzymać wejście News na `develop`, nawet gdy test jednostkowy tej samej
+publikacji jest zielony. Powód padnięcia jest jeden: filtr znalazł test i test nie przeszedł.
 
 Gdy jest projekt testowy, `dotnet test` z filtrem jednostkowym musi przejść i liczba testów
 musi być większa od zera. Pusty zbiór przy istniejącym projekcie testowym nie udaje sukcesu.
@@ -356,8 +352,7 @@ Wyzwalacze:
 | Workflow | `pull_request.branches` |
 | --- | --- |
 | `build.yml`, `unit-tests.yml`, `format.yml` | `develop`, `release`, `main` |
-| `integration-tests.yml` | `release`, `main` |
-| `performance.yml` | `main` |
+| `integration-tests.yml`, `performance.yml` | `develop`, `release`, `main` |
 
 `permissions` joba to `contents: read`. Nie ma `secrets`. Checkout z
 `persist-credentials: false`. `timeout-minutes` to `20` dla buildu, formatu i testu
@@ -407,9 +402,9 @@ Gdy projekt jest, a `global.json` nie ma, zakończ job kodem innym niż zero. Fo
 ### 3. Dopisać checki do rulesetów
 
 W scaleniu, które dodaje `build.yml`, `unit-tests.yml` i `format.yml`, dopisz do trzech
-JSON-ów nazwy `build`, `unit-tests`, `format`. W scaleniu, które dodaje test integracyjny,
-dopisz `integration-tests` do `release.json` i `main.json`. W scaleniu testu wydajności
-dopisz `performance` do `main.json`.
+JSON-ów nazwy `build`, `unit-tests`, `format`. W scaleniu, które dodaje test integracyjny i
+test wydajności, dopisz `integration-tests` i `performance` do `develop.json`,
+`release.json` i `main.json`.
 
 Nie dopisuj `codeql`, `sonarqube`, `image-scan`, `gitleaks`, `dependency-vulnerabilities`,
 `sbom`, `attestations`, `release-tags`, `zizmor`, `action-pins` ani `scorecard` w scaleniu,
@@ -419,9 +414,9 @@ Po numerze `07` listy mają wyglądać tak:
 
 | Plik | Checki |
 | --- | --- |
-| `develop.json` | `branch-name`, `pr-title`, `build`, `unit-tests`, `format`, `gitleaks`, `dependency-vulnerabilities`, `zizmor`, `action-pins`, `scorecard` |
-| `release.json` | checki z `develop` oraz `integration-tests`, `codeql`, `sonarqube`, `image-scan` |
-| `main.json` | checki z `release` oraz `performance`, `sbom`, `attestations`, `release-tags` |
+| `develop.json` | `branch-name`, `pr-title`, `build`, `unit-tests`, `integration-tests`, `performance`, `format`, `codeql`, `gitleaks`, `dependency-vulnerabilities`, `zizmor`, `action-pins`, `scorecard` |
+| `release.json` | checki z `develop` oraz `sonarqube`, `image-scan` |
+| `main.json` | checki z `release` oraz `sbom`, `attestations`, `release-tags` |
 
 ### 4. Zostawić pusty sukces jawnym logiem
 
@@ -462,8 +457,8 @@ mają być dwoma wierszami na liście checków pull requestu z tytułem
 | `build.yml` | pull request na trzy gałęzie | check `build` |
 | `unit-tests.yml` | pull request na trzy gałęzie | check `unit-tests` |
 | `format.yml` | pull request na trzy gałęzie | check `format` |
-| `integration-tests.yml` | pull request na `release` i `main` | check `integration-tests` |
-| `performance.yml` | pull request na `main` | check `performance` |
+| `integration-tests.yml` | pull request na `develop`, `release` i `main` | check `integration-tests` |
+| `performance.yml` | pull request na `develop`, `release` i `main` | check `performance` |
 | trzy JSON-y rulesetów | sync z numeru `01` | zamiana zielonego statusu w blokadę przycisku |
 
 Ruleset nie uruchamia testu. Workflow uruchamia test i publikuje status. Ruleset czyta
@@ -552,19 +547,20 @@ Ten drugi filtr ma się zgadzać z `unit-tests.yml`. Na gałęzi przed pierwszym
 komendy nie są kryterium joba. Kryterium jest `require-material.sh`. Gdy projekt już jest, a
 `global.json` nie ma, job `build` pada. Ten numer nie podstawia numeru SDK.
 
-Po syncu rulesetu pull request do `develop` pokazuje wymagane `build`, `unit-tests` i
-`format`. Brak którejkolwiek pozycji na liście sprawdzeń w interfejsie, przy jednoczesnej
-obecności w JSON, oznacza, że sync nie został wykonany. Zielony tytuł
+Po syncu rulesetu pull request do `develop` pokazuje wymagane `build`, `unit-tests`,
+`integration-tests`, `performance` i `format`. Brak którejkolwiek pozycji na liście
+sprawdzeń w interfejsie, przy jednoczesnej obecności w JSON, oznacza, że sync nie został
+wykonany. Zielony tytuł
 `feat(news): publish article revision` przy czerwonym `unit-tests` zostawia przycisk
 scalenia zablokowany. To jest bramka, której sam numer `01` nie ma.
 
 ## Zasady
 
-- Bramka `develop` nie wymaga testu integracyjnego, CodeQL, SonarQube, skanu obrazu,
-  NBombera, SBOM, atestacji ani tagu.
-- Bramka `release` dokłada test integracyjny i checki numerów `03`, `04` (skan obrazu) oraz
-  `05`.
-- Bramka `main` dokłada NBomber, SBOM, atestację i tag.
+- Bramka `develop` wymaga trzech pięter testów i CodeQL. Nie wymaga SonarQube, skanu
+  obrazu, SBOM, atestacji ani tagu.
+- Bramka `release` dokłada checki numerów `04` (skan obrazu) oraz `05` i powtarza trzy
+  piętra.
+- Bramka `main` dokłada SBOM, atestację i tag i powtarza trzy piętra.
 - Check z wcześniejszej bramki jest wymagany także na dalszej gałęzi.
 - Job wymagany zawsze się kończy statusem, którego ruleset umie przeczytać. Pominięcie joba
   nie zastępuje sukcesu.
@@ -610,8 +606,8 @@ scalenia zablokowany. To jest bramka, której sam numer `01` nie ma.
 
 - [Required status checks](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches#require-status-checks-before-merging).
   Wiążące jest to, że scalenie czeka na sukces wymienionych checków. Dotyczy `build`,
-  `unit-tests` i `format` na trzech gałęziach oraz dokładania `integration-tests` i
-  `performance` tam, gdzie tabela to mówi. Ze źródła nie bierzemy klasycznej ochrony gałęzi
+  `unit-tests`, `integration-tests`, `performance` i `format` na trzech gałęziach. Ze źródła
+  nie bierzemy klasycznej ochrony gałęzi
   wyklikanej w ustawieniach ani wymaganej recenzji. Nazwy siedzą w JSON rulesetu.
 - [Troubleshooting required status checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
   Wiążące jest to, że workflow pominięty filtrem ścieżek zostawia check w oczekiwaniu i
@@ -670,8 +666,9 @@ scalenia zablokowany. To jest bramka, której sam numer `01` nie ma.
   `package.json` daje kod `0`.
 - [NBomber](https://nbomber.com/). Wiążące jest narzędzie testu obciążenia, które ten numer
   rezerwuje pod cechę `Category=Performance`. Dotyczy joba `performance` wymaganego na
-  `main` i niewymaganego na `develop`. Ze źródła nie bierzemy uruchomienia obciążenia na
-  każdym szkicu. Pakietu nie ma w repozytorium, dopóki nie ma projektu testowego.
+  `develop`, `release` i `main`. Ze źródła nie bierzemy odłożenia obciążenia do `main`.
+  Pakietu nie ma w repozytorium, dopóki nie ma projektu testowego. Zanim projekt powstanie,
+  filtr nie znajduje testu i job kończy się sukcesem.
 - [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0). Wiążący jest tekst
   licencji, na której wolno wziąć NBomber do joba `performance`. Dotyczy zdania, że licencja
   używana w tym jobie to Apache 2.0. Ze źródła nie bierzemy innej licencji narzędzia

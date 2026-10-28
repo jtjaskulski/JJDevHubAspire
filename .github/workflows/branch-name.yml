@@ -2,6 +2,11 @@ name: branch-name
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
     branches:
       - develop
       - release
@@ -15,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -23,6 +29,20 @@ jobs:
 
       - name: Check branch name
         env:
-          HEAD_REF: ${{ github.head_ref }}
-          BASE_REF: ${{ github.base_ref }}
-        run: .github/scripts/check-branch-name.sh --head "$HEAD_REF" --base "$BASE_REF"
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          pr=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}")
+          head=$(jq -r .head.ref <<< "$pr")
+          base=$(jq -r .base.ref <<< "$pr")
+          if [[ -z $head || $head == null || -z $base || $base == null ]]; then
+            echo "brak głowy albo celu w pull requeście" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin \
+            "+refs/heads/${head}:refs/remotes/origin/${head}" \
+            "+refs/heads/develop:refs/remotes/origin/develop" \
+            "+refs/heads/main:refs/remotes/origin/main"
+          .github/scripts/check-branch-name.sh --head "$head" --base "$base"

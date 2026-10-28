@@ -49,6 +49,12 @@
           },
           {
             "context": "integration-tests"
+          },
+          {
+            "context": "performance"
+          },
+          {
+            "context": "codeql"
           }
         ]
       }
