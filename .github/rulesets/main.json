@@ -60,6 +60,9 @@
             "context": "dependency-vulnerabilities"
           },
           {
+            "context": "sonarqube"
+          },
+          {
             "context": "image-scan"
           },
           {
