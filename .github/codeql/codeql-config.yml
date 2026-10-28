@@ -1,0 +1,11 @@
+paths-ignore:
+  # Proza. Nie ma w niej źródła i ujścia.
+  - "docs/**"
+  # Pliki numeru wersji, nie kod.
+  - "versions/**"
+  # Plik generatora nie jest drugim źródłem prawdy.
+  - "**/*.Generated.cs"
+  # Katalog kompilacji.
+  - "**/bin/**"
+  # Katalog kompilacji.
+  - "**/obj/**"

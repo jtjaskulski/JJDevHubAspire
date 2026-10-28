@@ -597,8 +597,8 @@ rezerwację albo nie commituje żadnego z nich. Kafka w teście outboxa idzie pr
 `Testcontainers.Kafka` w trybie KRaft, tak jak w [testach](22-testy.md).
 
 Wydajność: scenariusz NBomber woła `GET /.well-known/jwks.json` przez 30 sekund. Login do tego
-scenariusza nie wchodzi. Cecha `Category=Performance`. Bramka, która ten test wymaga, jest
-opisana w numerze 22: `main`.
+scenariusza nie wchodzi. Cecha `Category=Performance`. Job `performance` wymaga tego testu
+na `develop`, `release` i `main`, tak jak opisuje numer 22.
 
 Lokalnie, bez kontenerów i bez NBombera:
 `dotnet test src/services/Identity --filter "Category!=Integration&Category!=Performance"`.

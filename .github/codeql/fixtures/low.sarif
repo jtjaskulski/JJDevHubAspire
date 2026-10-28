@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "fixture",
+          "rules": [
+            {
+              "id": "fixture/low"
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "fixture/low",
+          "ruleIndex": 0,
+          "level": "note",
+          "message": {
+            "text": "fixture"
+          },
+          "properties": {
+            "tags": ["security"],
+            "security-severity": "3.0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "fixture.txt"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
