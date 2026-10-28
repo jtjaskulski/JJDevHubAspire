@@ -444,7 +444,7 @@ actionlint .github/workflows/sonarqube.yml
 Kod `0`.
 
 ```bash
-grep -nE 'self-hosted|pull_request_target|secrets\.|latest' .github/workflows/sonarqube.yml compose/sonarqube/compose.yml
+grep -nE 'self-hosted|pull_request_target|secrets\.|:latest' .github/workflows/sonarqube.yml compose/sonarqube/compose.yml
 ```
 
 Brak trafień. W compose jest skrót obrazu, nie tag `latest`.
