@@ -55,6 +55,18 @@
           },
           {
             "context": "performance"
+          },
+          {
+            "context": "dependency-vulnerabilities"
+          },
+          {
+            "context": "image-scan"
+          },
+          {
+            "context": "sbom"
+          },
+          {
+            "context": "attestations"
           }
         ]
       }

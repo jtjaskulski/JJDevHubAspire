@@ -78,11 +78,10 @@ Tytuł `feat: publish article revision` bez zakresu pada w `check-pr-title.sh` k
 
 Mechanizm działa przed katalogami usług. Pierwszy `feat` danego komponentu, który dotrze na
 `develop` i potem na `main`, wytnie pierwszy tag. Zanim katalog `src/services/News`
-istnieje, diff nie umie go dotknąć. Check `release-tags` jest wymagany na `main` i kończy
-się sukcesem, gdy nie ma czego tagować, z jawnym logiem. Na `develop` check nie jest
-wymagany. Tam wersję przygotowuje release-please pull requestem. Na pull request do
-`release` ten sam skrypt wolno odpalić lokalnie, zanim otworzy się promocja. W rulesecie
-`release` check nie jest wymagany, zgodnie z podziałem bramek.
+istnieje, diff nie umie go dotknąć. Check `release-tags` jest wymagany na `develop`,
+`release` i `main` i kończy się sukcesem, gdy nie ma czego tagować, z jawnym logiem. Na
+`develop` wersję przygotowuje release-please pull requestem. Ten sam skrypt jest checkiem
+także na pull request do `release`. Tag i tak powstaje później.
 
 Tag powstaje na `push` do `main`, nie na `develop` i nie na pull requeście. Na `develop`
 akcja ma `skip-github-release: true`. Otwiera pull request wydania i aktualizuje changelog
@@ -306,14 +305,14 @@ laptopa nie.
 | `.github/scripts/prepare-versions.sh` | wyliczenie następnej wersji i zapis plików |
 | `.github/scripts/kernel-dependents.sh` | graf `ProjectReference` |
 | `.github/scripts/release-tags-gate.sh` | porównanie diffu, plików i tagów |
-| `.github/rulesets/main.json` | check `release-tags` |
+| `.github/rulesets/develop.json`, `release.json`, `main.json` | check `release-tags` |
 | `.github/rulesets/tags.json` | kto może utworzyć tag i jaki wzorzec |
 
 `versions.yml` ma zdarzenia z tabeli.
 
 | Zdarzenie | Uprawnienia | Co robi |
 | --- | --- | --- |
-| `pull_request` na `main` | `contents: read` | job `release-tags`, suchy werdykt, bez tworzenia tagu |
+| `pull_request` na `develop`, `release` i `main` | `contents: read` | job `release-tags`, suchy werdykt, bez tworzenia tagu |
 | `push` na `develop` | `contents: write`, `pull-requests: write` | release-please otwiera pull request wydania, bez tagu |
 | `push` na `main` | `contents: write` | tworzy brakujące tagi dla wersji z JSON |
 
@@ -323,10 +322,10 @@ Na `push`, który tworzy tag, checkout musi móc pchnąć tag. Używa `GITHUB_TO
 `permissions`, nie sekretu z OpenBao. W pliku nie ma `secrets.`, nie ma `self-hosted`, nie
 ma `pull_request_target` i nie ma `docker build`.
 
-`release-tags` jest w `main.json`. Nie jest wymagany na `develop`. Nie jest wymagany w
-rulesecie `release`. `tags.json` dochodzi do `sync-rulesets.sh` z numeru `01` w tym samym
-scaleniu. Wzorzec i aktor Actions są w tym rulesecie. Job `release-tags` i tak pada, zanim
-tag zostanie wypchnięty, gdy para komponent–wersja jest za szeroka albo za wąska.
+`release-tags` jest w `develop.json`, `release.json` i `main.json`. `tags.json` dochodzi do
+`sync-rulesets.sh` z numeru `01` w tym samym scaleniu. Wzorzec i aktor Actions są w tym
+rulesecie. Job `release-tags` i tak pada, zanim tag zostanie wypchnięty, gdy para
+komponent–wersja jest za szeroka albo za wąska.
 
 Konfiguracja pakietu niesie `release-type: simple`, `component` równy nazwie,
 `include-component-in-tag: true` oraz `extra-files` na `versions/<komponent>.json`. W
@@ -384,13 +383,11 @@ do pełnego SHA z komentarzem wersji. Wejścia `release-type` na akcji nie ma.
 
 ### 6. Dopisać rulesety
 
-W tym samym scaleniu dopisz `release-tags` do `main.json`. Utwórz `tags.json` i dołóż go do
-`sync-rulesets.sh` z numeru `01`. Nie wymagaj `release-tags` na `develop`: tam wersję
-przygotowuje release-please pull requestem, a zła nazwa gałęzi i tak pada w numerze `01`.
-Werdykt „czy wolno wejść na `main` ” jest na `main`.
-
-Na pull request do `release` ten sam skrypt wolno odpalić lokalnie, zanim otworzy się
-promocję. W rulesecie `release` check nie jest wymagany, zgodnie z podziałem bramek.
+W tym samym scaleniu dopisz `release-tags` do `develop.json`, `release.json` i `main.json`.
+Utwórz `tags.json` i dołóż go do `sync-rulesets.sh` z numeru `01`. Na `develop` wersję
+nadal przygotowuje release-please pull requestem, a zła nazwa gałęzi i tak pada w numerze
+`01`. Werdykt „czy plik wersji pasuje do diffu” jest na trzech gałęziach. Tag powstaje
+dopiero na `push` do `main`.
 
 ### 7. Nie budować obrazu
 
@@ -509,8 +506,8 @@ Podbicia `0.2.0`, `2.0.0`, `1.4.1` i `1.5.0` widać w `--dry-run`, bez tagu i be
 - Zakres `infra` nie tworzy tagu.
 - Tag powstaje na `push` do `main`, nie na `develop` i nie na pull requeście.
 - Na `develop` akcja ma `skip-github-release: true`.
-- Check `release-tags` jest wymagany na `main` i kończy się sukcesem, gdy nie ma czego
-  tagować, z jawnym logiem.
+- Check `release-tags` jest wymagany na `develop`, `release` i `main` i kończy się sukcesem,
+  gdy nie ma czego tagować, z jawnym logiem.
 - Job nie buduje obrazu.
 - Plik `versions/<komponent>.json` jest źródłem dla stopki, ekranu O aplikacji i
   `GET /versions`.
@@ -577,9 +574,9 @@ tag, który `push-tags` wypisze na `main`, gdy wersja wyjdzie z `0.0.0`.
   Tytuł `feat` bez zakresu nie dochodzi do prepare-versions jako poprawny `feat`.
 - [Rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets).
   Wiążące jest to, że ruleset dotyczy także tagów, nie tylko gałęzi. Dotyczy `tags.json` i
-  checka `release-tags` w `main.json`. Ze źródła nie bierzemy rulesetu, który pozwala
-  człowiekowi wypchnąć tag z laptopa. Aktor tworzenia tagu to przebieg Actions. Check
-  `release-tags` nie jest wymagany na `develop` ani w rulesecie `release`.
+  checka `release-tags` w `develop.json`, `release.json` i `main.json`. Ze źródła nie
+  bierzemy rulesetu, który pozwala człowiekowi wypchnąć tag z laptopa. Aktor tworzenia tagu
+  to przebieg Actions. Ze źródła nie bierzemy wymagania `release-tags` wyłącznie na `main`.
 - [Available rules for
   rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets).
   Wiążący jest wzorzec nazwy tagu i ograniczenie, kto może tag utworzyć. Dotyczy wyrażenia
@@ -605,7 +602,7 @@ tag, który `push-tags` wypisze na `main`, gdy wersja wyjdzie z `0.0.0`.
 - `fix` od `1.4.0` wypisuje `1.4.1`. `feat` od `1.4.0` wypisuje `1.5.0`.
 - Bramka pada kodem `1`, gdy podbity jest Identity, a ścieżki wskazują tylko News.
 - `feature/lesson_markdown` pada kodem `1` w `check-branch-name.sh`.
-- `main.json` wymaga `release-tags`.
+- `develop.json`, `release.json` i `main.json` wymagają `release-tags`.
 - W `versions.yml` nie ma `docker build` ani `secrets.`.
 - Nie ma wtyczki `linked-versions`. Tag ma postać `<komponent>-v<wersja>`, na przykład
   `news-v1.4.0`.
