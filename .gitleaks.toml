@@ -1,0 +1,24 @@
+title = "JJDevHub"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "sops-or-enc-file"
+description = "Plik SOPS albo zaszyfrowany sekret"
+regex = '''(?s).+'''
+path = '''(?i)(?:^|/)(?:[^/]+\.sops\.ya?ml|sops\.yaml|\.sops\.yaml|[^/]+\.enc\.ya?ml)$'''
+
+[[rules]]
+id = "dotenv-value"
+description = "Wartość w pliku dotenv"
+regex = '''(?m)^[A-Za-z_][A-Za-z0-9_]*=\S'''
+path = '''(?i)(?:^|/)\.env(?:\.[^/]+)?$'''
+
+[[rules.allowlists]]
+description = "Puste wartości w .env.example sprawdza check-no-sops.sh. Reguły domyślne nadal widzą sekret w tym pliku."
+paths = ['''(?i)(?:^|/)\.env\.example$''']
+
+[allowlist]
+description = "Placeholder JWT w skrypcie smoke lokalnym, nie poświadczenie."
+regexes = ['''ci-smoke-jwt-key-at-least-32-characters-long''']

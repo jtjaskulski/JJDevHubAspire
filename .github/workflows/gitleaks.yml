@@ -1,0 +1,44 @@
+name: gitleaks
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release
+      - main
+  push:
+    branches:
+      - develop
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions: {}
+
+jobs:
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.sha }}
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          bindir="${RUNNER_TEMP}/supply-chain"
+          mkdir -p "$bindir"
+          .github/scripts/install-pinned-tool.sh gitleaks "$bindir"
+          echo "$bindir" >> "$GITHUB_PATH"
+
+      - name: Reject SOPS and dotenv
+        run: .github/scripts/check-no-sops.sh
+
+      - name: Detect secrets
+        run: gitleaks detect --redact --source . --config .gitleaks.toml

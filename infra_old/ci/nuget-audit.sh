@@ -5,7 +5,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
 export DOTNET_NOLOGO=1
-dotnet restore JJDevHub.sln
+dotnet restore JJDevHub.sln --locked-mode
 dotnet package list --project JJDevHub.sln --vulnerable --include-transitive --format json \
   --source https://api.nuget.org/v3/index.json >/tmp/nuget-audit.json
 
