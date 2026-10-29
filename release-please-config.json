@@ -1,0 +1,114 @@
+{
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "separate-pull-requests": true,
+  "include-v-in-tag": true,
+  "component-no-space": true,
+  "pull-request-title-pattern": "chore(${component}): release ${version}",
+  "packages": {
+    "src/services/Identity": {
+      "release-type": "simple",
+      "component": "identity",
+      "include-component-in-tag": true,
+      "changelog-path": "/versions/identity.changelog.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/versions/identity.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    },
+    "src/services/News": {
+      "release-type": "simple",
+      "component": "news",
+      "include-component-in-tag": true,
+      "changelog-path": "/versions/news.changelog.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/versions/news.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    },
+    "src/services/Learning": {
+      "release-type": "simple",
+      "component": "learning",
+      "include-component-in-tag": true,
+      "changelog-path": "/versions/learning.changelog.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/versions/learning.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    },
+    "src/services/Cv": {
+      "release-type": "simple",
+      "component": "cv",
+      "include-component-in-tag": true,
+      "changelog-path": "/versions/cv.changelog.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/versions/cv.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    },
+    "src/services/Contact": {
+      "release-type": "simple",
+      "component": "contact",
+      "include-component-in-tag": true,
+      "changelog-path": "/versions/contact.changelog.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/versions/contact.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    },
+    "src/gateway": {
+      "release-type": "simple",
+      "component": "gateway",
+      "include-component-in-tag": true,
+      "changelog-path": "/versions/gateway.changelog.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/versions/gateway.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    },
+    "src/clients/web": {
+      "release-type": "simple",
+      "component": "web",
+      "include-component-in-tag": true,
+      "changelog-path": "/versions/web.changelog.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/versions/web.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    },
+    "src/clients/mobile": {
+      "release-type": "simple",
+      "component": "mobile",
+      "include-component-in-tag": true,
+      "changelog-path": "/versions/mobile.changelog.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/versions/mobile.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    }
+  }
+}

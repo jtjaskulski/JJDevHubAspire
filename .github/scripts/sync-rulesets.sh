@@ -22,7 +22,7 @@ if ! repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner); then
   exit 1
 fi
 
-for name in develop release main; do
+for name in develop release main tags; do
   path=".github/rulesets/${name}.json"
   if ! jq empty "$path"; then
     echo "błąd składni ${path}" >&2
