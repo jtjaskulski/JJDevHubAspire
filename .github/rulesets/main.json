@@ -82,6 +82,9 @@
           },
           {
             "context": "attestations"
+          },
+          {
+            "context": "release-tags"
           }
         ]
       }
