@@ -113,4 +113,16 @@ if [[ $head == release ]]; then
   exit 0
 fi
 
+release_please='^release-please--branches--develop--components--(identity|news|learning|cv|contact|gateway|web|mobile)$'
+
+if [[ $head =~ $release_please ]]; then
+  if [[ $base != develop ]]; then
+    fail "pull request wydania wchodzi tylko na develop: ${head} → ${base}"
+  fi
+  if [[ $skip_ancestry -eq 0 ]]; then
+    check_ancestry "$head"
+  fi
+  exit 0
+fi
+
 fail "głowa nie jest gałęzią roboczą ani promocją: ${head}"

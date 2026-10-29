@@ -1,0 +1,87 @@
+name: versions
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release
+      - main
+  push:
+    branches:
+      - develop
+      - main
+
+permissions: {}
+
+jobs:
+  release-tags:
+    name: release-tags
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Compare versions
+        env:
+          BASE_NAME: ${{ github.base_ref }}
+          HEAD_NAME: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          case "$BASE_NAME" in
+            develop|release|main) ;;
+            *)
+              echo "zły cel" >&2
+              exit 1
+              ;;
+          esac
+          git fetch origin "+refs/heads/${BASE_NAME}:refs/remotes/origin/${BASE_NAME}"
+          .github/scripts/release-tags-gate.sh \
+            --base-ref "origin/${BASE_NAME}" \
+            --head-ref HEAD \
+            --head-name "$HEAD_NAME"
+
+  release-please:
+    name: release-please
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Open release pull request
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          skip-github-release: true
+
+  push-tags:
+    name: push-tags
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Push component tags
+        run: .github/scripts/push-tags.sh
