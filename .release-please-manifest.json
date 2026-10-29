@@ -1,0 +1,10 @@
+{
+  "src/services/Identity": "0.0.0",
+  "src/services/News": "0.0.0",
+  "src/services/Learning": "0.0.0",
+  "src/services/Cv": "0.0.0",
+  "src/services/Contact": "0.0.0",
+  "src/gateway": "0.0.0",
+  "src/clients/web": "0.0.0",
+  "src/clients/mobile": "0.0.0"
+}
