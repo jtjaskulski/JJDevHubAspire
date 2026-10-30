@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cv
+  namespace: jjdevhub
+  labels:
+    app: cv
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: cv
+  template:
+    metadata:
+      labels:
+        app: cv
+    spec:
+      containers:
+        - name: cv
+          image: ghcr.io/jtjaskulski/jjdevhub-cv@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: ConnectionStrings__cv_write
+              value: Host=postgres.jjdevhub.svc.cluster.local;Port=5432;Database=cv_write
+            - name: ConnectionStrings__cv_read
+              value: Host=postgres.jjdevhub.svc.cluster.local;Port=5432;Database=cv_read
+            - name: ConnectionStrings__cache
+              value: cache.jjdevhub.svc.cluster.local:6379
+            - name: ConnectionStrings__kafka
+              value: kafka.jjdevhub.svc.cluster.local:9092
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cv
+  namespace: jjdevhub
+  labels:
+    app: cv
+spec:
+  type: ClusterIP
+  selector:
+    app: cv
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

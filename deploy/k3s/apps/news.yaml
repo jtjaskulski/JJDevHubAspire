@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: news
+  namespace: jjdevhub
+  labels:
+    app: news
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: news
+  template:
+    metadata:
+      labels:
+        app: news
+    spec:
+      containers:
+        - name: news
+          image: ghcr.io/jtjaskulski/jjdevhub-news@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: ConnectionStrings__news_write
+              value: Host=postgres.jjdevhub.svc.cluster.local;Port=5432;Database=news_write
+            - name: ConnectionStrings__news_read
+              value: Host=postgres.jjdevhub.svc.cluster.local;Port=5432;Database=news_read
+            - name: ConnectionStrings__cache
+              value: cache.jjdevhub.svc.cluster.local:6379
+            - name: ConnectionStrings__kafka
+              value: kafka.jjdevhub.svc.cluster.local:9092
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: news
+  namespace: jjdevhub
+  labels:
+    app: news
+spec:
+  type: ClusterIP
+  selector:
+    app: news
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

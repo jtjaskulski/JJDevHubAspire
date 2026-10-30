@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contact
+  namespace: jjdevhub
+  labels:
+    app: contact
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: contact
+  template:
+    metadata:
+      labels:
+        app: contact
+    spec:
+      containers:
+        - name: contact
+          image: ghcr.io/jtjaskulski/jjdevhub-contact@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: ConnectionStrings__contact_write
+              value: Host=postgres.jjdevhub.svc.cluster.local;Port=5432;Database=contact_write
+            - name: ConnectionStrings__contact_read
+              value: Host=postgres.jjdevhub.svc.cluster.local;Port=5432;Database=contact_read
+            - name: ConnectionStrings__cache
+              value: cache.jjdevhub.svc.cluster.local:6379
+            - name: ConnectionStrings__kafka
+              value: kafka.jjdevhub.svc.cluster.local:9092
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: contact
+  namespace: jjdevhub
+  labels:
+    app: contact
+spec:
+  type: ClusterIP
+  selector:
+    app: contact
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

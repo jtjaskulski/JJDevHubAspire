@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: jjdevhub
+data:
+  10-databases.sql: |
+    CREATE DATABASE identity_write;
+    CREATE DATABASE identity_read;
+    CREATE DATABASE news_write;
+    CREATE DATABASE news_read;
+    CREATE DATABASE learning_write;
+    CREATE DATABASE learning_read;
+    CREATE DATABASE cv_write;
+    CREATE DATABASE cv_read;
+    CREATE DATABASE contact_write;
+    CREATE DATABASE contact_read;
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: jjdevhub
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  serviceName: postgres
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          # 16-alpine
+          image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_PASSWORD_FILE
+              value: /secrets/postgres/password
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+            - name: superuser
+              mountPath: /secrets/postgres
+              readOnly: true
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: init
+          configMap:
+            name: postgres-init
+        - name: superuser
+          secret:
+            secretName: postgres-superuser
+            items:
+              - key: password
+                path: password
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 40Gi
