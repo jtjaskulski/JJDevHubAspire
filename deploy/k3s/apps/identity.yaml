@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity
+  namespace: jjdevhub
+  labels:
+    app: identity
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: identity
+  template:
+    metadata:
+      labels:
+        app: identity
+    spec:
+      containers:
+        - name: identity
+          image: ghcr.io/jtjaskulski/jjdevhub-identity@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: ConnectionStrings__identity_write
+              value: Host=postgres.jjdevhub.svc.cluster.local;Port=5432;Database=identity_write
+            - name: ConnectionStrings__identity_read
+              value: Host=postgres.jjdevhub.svc.cluster.local;Port=5432;Database=identity_read
+            - name: ConnectionStrings__cache
+              value: cache.jjdevhub.svc.cluster.local:6379
+            - name: ConnectionStrings__kafka
+              value: kafka.jjdevhub.svc.cluster.local:9092
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity
+  namespace: jjdevhub
+  labels:
+    app: identity
+spec:
+  type: ClusterIP
+  selector:
+    app: identity
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

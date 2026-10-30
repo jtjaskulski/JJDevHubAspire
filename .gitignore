@@ -64,6 +64,9 @@ coverage/
 *.secret
 appsettings.Development.json
 appsettings.Local.json
+kubeconfig
+k3s.yaml
+*.kubeconfig
 
 # Web CV — local personal data and generated copy for the build
 src/Clients/web/src/content/cv.local.json
