@@ -106,12 +106,14 @@ expected_files=(
   apps/contact.yaml
   apps/gateway.yaml
   apps/web.yaml
+  cloudflared/deployment.yaml
+  cloudflared/secret.example.yaml
 )
 
 expected_list=$(printf '%s\n' "${expected_files[@]}" | sort)
 found_list=$(find "$k3s" -type f -printf '%P\n' | sort)
 if [[ $expected_list != "$found_list" ]]; then
-  fail "drzewo deploy/k3s nie jest listą numeru 08"
+  fail "drzewo deploy/k3s nie jest listą numerów 08 i 09"
   echo "oczekiwane:" >&2
   printf '%s\n' "$expected_list" >&2
   echo "znalezione:" >&2
@@ -275,5 +277,37 @@ for name in gateway web; do
     fail "${file}: brama i web nie dostają connection stringa bazy"
   fi
 done
+
+cloudflared="${k3s}/cloudflared/deployment.yaml"
+require_line "$cloudflared" '^kind: Deployment$' "brak Deploymentu"
+require_line "$cloudflared" '^  name: cloudflared$' "Deployment nie nazywa się cloudflared"
+require_line "$cloudflared" '^  namespace: jjdevhub$' "namespace nie nazywa się jjdevhub"
+require_count "$cloudflared" '^  replicas: 1$' 1 "cloudflared nie ma jednej repliki"
+require_count "$cloudflared" '^[[:space:]]*replicas:' 1 "więcej niż jedno replicas"
+require_line "$cloudflared" '^[[:space:]]*image: cloudflare/cloudflared@sha256:[0-9a-f]{64}$' "obraz nie jest digestem cloudflared"
+require_line "$cloudflared" '^[[:space:]]*- tunnel$' "brak argumentu tunnel"
+require_line "$cloudflared" '^[[:space:]]*- --no-autoupdate$' "brak --no-autoupdate"
+require_line "$cloudflared" '^[[:space:]]*- run$' "brak argumentu run"
+require_line "$cloudflared" '^[[:space:]]*- name: TUNNEL_TOKEN$' "brak TUNNEL_TOKEN"
+require_line "$cloudflared" '^[[:space:]]*name: cloudflared-token$' "token nie pochodzi z Secretu cloudflared-token"
+require_line "$cloudflared" '^[[:space:]]*key: token$' "klucz Secretu nie nazywa się token"
+if grep -q 'eyJ' "$cloudflared"; then
+  fail "${cloudflared}: token w manifeście"
+fi
+if grep -q 'hostNetwork' "$cloudflared"; then
+  fail "${cloudflared}: hostNetwork"
+fi
+if grep -R -q 'kind: HorizontalPodAutoscaler' "${k3s}/cloudflared"; then
+  fail "cloudflared ma HPA"
+fi
+
+secret_example="${k3s}/cloudflared/secret.example.yaml"
+require_line "$secret_example" '^kind: Secret$' "brak Secretu"
+require_line "$secret_example" '^  name: cloudflared-token$' "Secret nie nazywa się cloudflared-token"
+require_line "$secret_example" '^  namespace: jjdevhub$' "namespace nie nazywa się jjdevhub"
+require_line "$secret_example" '^[[:space:]]*token: ""$' "przykład Secretu ma puste pole token"
+if grep -q 'eyJ' "$secret_example"; then
+  fail "${secret_example}: token w przykładzie"
+fi
 
 exit "$status"
