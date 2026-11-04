@@ -108,12 +108,13 @@ expected_files=(
   apps/web.yaml
   cloudflared/deployment.yaml
   cloudflared/secret.example.yaml
+  observability/otel-collector.yaml
 )
 
 expected_list=$(printf '%s\n' "${expected_files[@]}" | sort)
 found_list=$(find "$k3s" -type f -printf '%P\n' | sort)
 if [[ $expected_list != "$found_list" ]]; then
-  fail "drzewo deploy/k3s nie jest listą numerów 08 i 09"
+  fail "drzewo deploy/k3s nie jest listą numerów 08, 09 i 10"
   echo "oczekiwane:" >&2
   printf '%s\n' "$expected_list" >&2
   echo "znalezione:" >&2
@@ -257,6 +258,13 @@ for name in "${apps[@]}"; do
   require_line "$file" 'containerPort: 8080$' "kontener nie słucha na 8080"
   require_line "$file" '^  type: ClusterIP$' "Service nie jest ClusterIP"
   require_line "$file" 'port: 8080$' "Service nie słucha na 8080"
+  require_line "$file" 'name: OTEL_EXPORTER_OTLP_ENDPOINT$' "brak OTEL_EXPORTER_OTLP_ENDPOINT"
+  require_line "$file" 'value: http://otel-collector\.jjdevhub\.svc\.cluster\.local:4317$' "endpoint OTLP nie wskazuje collectora"
+  require_line "$file" 'name: OTEL_EXPORTER_OTLP_PROTOCOL$' "brak OTEL_EXPORTER_OTLP_PROTOCOL"
+  require_line "$file" 'value: grpc$' "protokół OTLP nie jest grpc"
+  require_line "$file" 'name: OTEL_SERVICE_NAME$' "brak OTEL_SERVICE_NAME"
+  require_line "$file" "value: ${name}$" "OTEL_SERVICE_NAME nie jest ${name}"
+  require_line "$file" "value: service\\.version=${name}-v[0-9]+\\.[0-9]+\\.[0-9]+,deployment\\.environment=production$" "service.version nie jest tagiem komponentu"
 done
 
 for name in "${domain[@]}"; do
@@ -308,6 +316,39 @@ require_line "$secret_example" '^  namespace: jjdevhub$' "namespace nie nazywa s
 require_line "$secret_example" '^[[:space:]]*token: ""$' "przykład Secretu ma puste pole token"
 if grep -q 'eyJ' "$secret_example"; then
   fail "${secret_example}: token w przykładzie"
+fi
+
+collector="${k3s}/observability/otel-collector.yaml"
+require_line "$collector" '^kind: ConfigMap$' "brak ConfigMap"
+require_line "$collector" '^kind: Deployment$' "brak Deploymentu"
+require_line "$collector" '^kind: Service$' "brak Service"
+require_count "$collector" '^  name: otel-collector$' 3 "nazwa nie jest otel-collector"
+require_count "$collector" '^  replicas: 1$' 1 "collector nie ma jednej repliki"
+require_count "$collector" '^[[:space:]]*replicas:' 1 "więcej niż jedno replicas"
+require_line "$collector" '^[[:space:]]*image: otel/opentelemetry-collector@sha256:[0-9a-f]{64}$' "obraz collectora bez digestu"
+require_line "$collector" '^  type: ClusterIP$' "Service collectora nie jest ClusterIP"
+require_line "$collector" 'port: 4317$' "Service collectora nie słucha na 4317"
+require_line "$collector" 'port: 8889$' "Service collectora nie słucha na 8889"
+require_line "$collector" 'containerPort: 13133$' "probe nie ma portu 13133"
+require_count "$collector" 'port: health$' 2 "probe nie woła portu health"
+if grep -q 'port: 13133' "$collector"; then
+  fail "${collector}: port 13133 jest w Service"
+fi
+require_line "$collector" 'cpu: 100m$' "brak żądania 100m CPU"
+require_line "$collector" 'memory: 256Mi$' "brak żądania 256Mi"
+require_line "$collector" 'endpoint: 0\.0\.0\.0:4317$' "receiver OTLP nie słucha na 4317"
+require_line "$collector" 'endpoint: 0\.0\.0\.0:8889$' "eksporter Prometheus nie słucha na 8889"
+require_line "$collector" 'endpoint: jaeger\.jjdevhub\.svc\.cluster\.local:4317$' "ślady nie idą na Service jaeger"
+require_line "$collector" 'insecure: true$' "odcinek do Jaegera nie jest insecure"
+require_line "$collector" 'endpoint: 0\.0\.0\.0:13133$' "health_check nie słucha na 13133"
+require_line "$collector" 'exporters: \[prometheus\]$' "potok metryk nie kończy się na Prometheusie"
+require_line "$collector" 'exporters: \[otlp/jaeger\]$' "potok śladów nie kończy się na otlp/jaeger"
+require_line "$collector" 'exporters: \[debug\]$' "potok logów nie kończy się na debug"
+if grep -q 'metricstransform:' "$collector"; then
+  fail "${collector}: metricstransform w potoku"
+fi
+if grep -R -q 'kind: HorizontalPodAutoscaler' "${k3s}/observability"; then
+  fail "collector ma HPA"
 fi
 
 exit "$status"
