@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: jjdevhub
+  labels:
+    app: prometheus
+data:
+  jjdevhub-http.yml: |
+    # Surowa nazwa z komentarza w otel-collector.yaml, odczyt 2026-11-04.
+    # Gdy tekst na :8889/metrics ma inną nazwę, zmienia się expr. Rekord zostaje.
+    groups:
+      - name: jjdevhub-http
+        rules:
+          - record: jjdevhub:http_server_active_requests:sum
+            expr: sum by (service_name) (http_server_active_requests)
