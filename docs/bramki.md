@@ -20,7 +20,7 @@ Job idzie na `ubuntu-latest`. Build, format i test jednostkowy mają `20` minut.
 
 Brak projektu we wskazanym komponencie kończy job kodem `0` i linią `no material for <job>`. To samo, gdy zmiana dotyka tylko `docs/` albo `.github/`. Ta linia pokazuje, że job doszedł do końca bez kompilacji.
 
-Projekt produkcyjny w `src/services`, `src/gateway` albo `src/shared` bez projektu testowego jest porażką `unit-tests`, także gdy sam diff dokumentacji niczego nie rusza. `JJDevHub.AppHost` i `JJDevHub.Server` nie są komponentami tej mapy.
+Projekt produkcyjny w `src/services`, `src/gateway` albo `src/shared` bez projektu testowego jest porażką `unit-tests`, także gdy sam diff dokumentacji niczego nie rusza. `JJDevHub.AppHost` i `JJDevHub.ServiceDefaults` nie są komponentami tej mapy.
 
 Wersję SDK wskazuje `global.json`. Projekt bez tego pliku kończy kompilację i test kodem innym niż zero. Sam plik, gdy żaden komponent nie ma projektu, zostawia job przy pustym sukcesie.
 
