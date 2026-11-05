@@ -109,6 +109,8 @@ expected_files=(
   cloudflared/deployment.yaml
   cloudflared/secret.example.yaml
   observability/otel-collector.yaml
+  observability/prometheus.yaml
+  observability/prometheus/rules.yaml
 )
 
 expected_list=$(printf '%s\n' "${expected_files[@]}" | sort)
