@@ -111,12 +111,13 @@ expected_files=(
   observability/otel-collector.yaml
   observability/prometheus.yaml
   observability/prometheus/rules.yaml
+  observability/jaeger.yaml
 )
 
 expected_list=$(printf '%s\n' "${expected_files[@]}" | sort)
 found_list=$(find "$k3s" -type f -printf '%P\n' | sort)
 if [[ $expected_list != "$found_list" ]]; then
-  fail "drzewo deploy/k3s nie jest listą numerów 08, 09 i 10"
+  fail "drzewo deploy/k3s nie jest listą numerów 08, 09, 10, 11 i 12"
   echo "oczekiwane:" >&2
   printf '%s\n' "$expected_list" >&2
   echo "znalezione:" >&2
@@ -348,6 +349,41 @@ require_line "$collector" 'exporters: \[otlp/jaeger\]$' "potok śladów nie koń
 require_line "$collector" 'exporters: \[debug\]$' "potok logów nie kończy się na debug"
 if grep -q 'metricstransform:' "$collector"; then
   fail "${collector}: metricstransform w potoku"
+fi
+if grep -E -q 'probabilistic_sampler|tail_sampling' "$collector"; then
+  fail "${collector}: sampler w potoku śladów"
+fi
+
+jaeger="${k3s}/observability/jaeger.yaml"
+require_line "$jaeger" '^kind: StatefulSet$' "brak StatefulSet"
+require_line "$jaeger" '^kind: Service$' "brak Service"
+require_count "$jaeger" '^  name: jaeger$' 2 "nazwa nie jest jaeger"
+require_count "$jaeger" '^  replicas: 1$' 1 "Jaeger nie ma jednej repliki"
+require_count "$jaeger" '^[[:space:]]*replicas:' 1 "więcej niż jedno replicas"
+require_line "$jaeger" '^[[:space:]]*image: jaegertracing/all-in-one@sha256:[0-9a-f]{64}$' "obraz Jaegera bez digestu"
+require_line "$jaeger" '^  type: ClusterIP$' "Service Jaegera nie jest ClusterIP"
+require_line "$jaeger" 'port: 4317$' "Service Jaegera nie słucha na 4317"
+require_line "$jaeger" 'port: 16686$' "Service Jaegera nie słucha na 16686"
+require_line "$jaeger" 'storageClassName: local-path$' "PVC Jaegera bez local-path"
+require_line "$jaeger" 'storage: 10Gi$' "PVC Jaegera nie ma 10Gi"
+require_line "$jaeger" 'mountPath: /badger$' "Badger nie jest montowany w /badger"
+require_line "$jaeger" 'name: SPAN_STORAGE_TYPE$' "brak SPAN_STORAGE_TYPE"
+require_line "$jaeger" 'value: badger$' "magazyn nie jest Badgerem"
+require_line "$jaeger" 'name: BADGER_EPHEMERAL$' "brak BADGER_EPHEMERAL"
+require_line "$jaeger" 'value: "false"$' "Badger jest efemeryczny"
+require_line "$jaeger" 'name: BADGER_DIRECTORY_VALUE$' "brak katalogu wartości"
+require_line "$jaeger" 'value: /badger/data$' "katalog wartości nie jest /badger/data"
+require_line "$jaeger" 'name: BADGER_DIRECTORY_KEY$' "brak katalogu kluczy"
+require_line "$jaeger" 'value: /badger/key$' "katalog kluczy nie jest /badger/key"
+require_line "$jaeger" 'name: BADGER_SPAN_STORE_TTL$' "brak retencji"
+require_line "$jaeger" 'value: 168h$' "retencja nie jest 7 dni"
+require_line "$jaeger" 'name: QUERY_BASE_PATH$' "brak QUERY_BASE_PATH"
+require_line "$jaeger" 'value: /$' "baza ścieżki UI nie jest /"
+if grep -E -q '4318|9411|14268|14250|COLLECTOR_ZIPKIN|emptyDir' "$jaeger"; then
+  fail "${jaeger}: port spoza 4317 i 16686 albo magazyn efemeryczny"
+fi
+if grep -R -E -q '16686|jaeger\.jjdevhub' "${k3s}/apps"; then
+  fail "aplikacja zna Jaegera"
 fi
 if grep -R -q 'kind: HorizontalPodAutoscaler' "${k3s}/observability"; then
   fail "collector ma HPA"
