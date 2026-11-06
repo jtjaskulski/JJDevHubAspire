@@ -1,0 +1,105 @@
+{
+  "uid": "jjdevhub-wersje",
+  "title": "jjdevhub-wersje",
+  "editable": false,
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "links": [],
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "service_name",
+        "label": "service_name",
+        "type": "custom",
+        "hide": 0,
+        "includeAll": false,
+        "multi": true,
+        "current": {
+          "selected": true,
+          "text": ["identity", "news", "learning", "cv", "contact", "gateway", "web"],
+          "value": ["identity", "news", "learning", "cv", "contact", "gateway", "web"]
+        },
+        "options": [
+          { "selected": true, "text": "identity", "value": "identity" },
+          { "selected": true, "text": "news", "value": "news" },
+          { "selected": true, "text": "learning", "value": "learning" },
+          { "selected": true, "text": "cv", "value": "cv" },
+          { "selected": true, "text": "contact", "value": "contact" },
+          { "selected": true, "text": "gateway", "value": "gateway" },
+          { "selected": true, "text": "web", "value": "web" }
+        ],
+        "query": "identity,news,learning,cv,contact,gateway,web"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "$service_name",
+      "repeat": "service_name",
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "panels": [
+        {
+          "id": 1,
+          "type": "table",
+          "title": "$service_name wersja",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+          "fieldConfig": { "defaults": {}, "overrides": [] },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": { "show": false, "reducer": ["sum"], "countRows": false }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "group by (service_name, service_version) (http_server_active_requests{service_name=\"$service_name\"})",
+              "instant": true,
+              "format": "table"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "$service_name repliki",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+          "fieldConfig": {
+            "defaults": { "decimals": 0 },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "textMode": "value",
+            "orientation": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "count by (service_name) (count by (service_name, instance) (http_server_active_requests{service_name=\"$service_name\"}))",
+              "instant": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

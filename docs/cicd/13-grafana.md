@@ -238,7 +238,8 @@ ma.
 
 | Ścieżka | Odpowiedzialność |
 | --- | --- |
-| `deploy/k3s/observability/grafana.yaml` | Deployment, Service ClusterIP 3000, PVC, montowanie provisioningu |
+| `deploy/k3s/observability/grafana/grafana.yaml` | Deployment, Service ClusterIP 3000, PVC, montowanie provisioningu |
+| `deploy/k3s/observability/grafana/kustomization.yaml` | Składa `grafana.yaml` i ConfigMapy z plików tego katalogu |
 | `deploy/k3s/observability/grafana/datasources.yaml` | Prometheus jako domyślny, Jaeger jako drugi |
 | `deploy/k3s/observability/grafana/dashboards.yaml` | Provisioning katalogu JSON, `allowUiUpdates: false` |
 | `deploy/k3s/observability/grafana/dashboards/jjdevhub-uslugi.json` | Ruch, czas, żądania w toku, per `service_name` |
@@ -340,7 +341,16 @@ do `deploy/k3s`.
 
 ### 2. Manifest
 
-Zastosuj `deploy/k3s/observability/grafana.yaml`. Jedna replika. Obraz po digescie. Żądania
+Zastosuj katalog `deploy/k3s/observability/grafana`. Polecenie wczytuje
+`grafana.yaml` z tego katalogu i składa ConfigMapy z plików obok, więc JSON ma jedną
+kopię. Plik manifestu leży w katalogu, bo `kubectl apply -k` nie wczytuje pliku spoza
+niego.
+
+```bash
+kubectl apply -k deploy/k3s/observability/grafana
+```
+
+Jedna replika. Obraz po digescie. Żądania
 100m CPU i 256 MiB pamięci. Service ClusterIP, port 3000. PVC `10Gi` na katalog danych.
 Zmienne środowiska z tabeli ścieżek: `secretKeyRef` na `grafana-admin` / `admin-password`
 oraz `GF_AUTH_ANONYMOUS_ENABLED=false`. `GF_SERVER_ROOT_URL` tylko przy hostname z numeru
@@ -507,7 +517,7 @@ dwiema replikami, albo przeglądem pliku, zanim drugi pod wstanie. Przegląd pli
 JSON stałej z hashem ReplicaSet. Znalezienie jej jest czerwone.
 
 9. W drzewie manifestów Grafany nie ma odbiornika OTLP, nie ma Promtail i nie ma Loki. Powód
-padnięcia: w `deploy/k3s/observability/grafana.yaml` albo w provisioning jest adres spoza
+padnięcia: w `deploy/k3s/observability/grafana/grafana.yaml` albo w provisioning jest adres spoza
 Prometheusa i Jaegera. YARP nie zawiera trasy do `grafana`. To jest przegląd plików bramy z
 [16-gateway.md](../api/16-gateway.md) i tego manifestu, nie test obciążeniowy.
 
