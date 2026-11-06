@@ -168,6 +168,7 @@ Docelowe drzewo, do którego prowadzą numery:
 | `src/clients/shared/theme` | tokeny |
 | `src/clients/web` | React |
 | `src/clients/mobile` | React Native |
+| `deploy/k3s` | manifesty jednego węzła |
 | `docs/api` | numery `01`–`22` |
 | `docs/cicd` | numery `01`–`16` |
 | `docs/frontend` | numery `01`–`08` |

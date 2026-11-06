@@ -1,8 +1,5 @@
 <Solution>
-  <Project Path="frontend/frontend.esproj">
-    <Build />
-    <Deploy />
-  </Project>
   <Project Path="JJDevHub.AppHost/JJDevHub.AppHost.csproj" />
-  <Project Path="JJDevHub.Server/JJDevHub.Server.csproj" />
+  <Project Path="JJDevHub.ServiceDefaults/JJDevHub.ServiceDefaults.csproj" />
+  <Project Path="tests/JJDevHub.ServiceDefaults.Tests/JJDevHub.ServiceDefaults.Tests.csproj" />
 </Solution>

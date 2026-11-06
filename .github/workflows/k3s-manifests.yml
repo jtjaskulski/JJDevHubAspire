@@ -1,0 +1,30 @@
+name: k3s-manifests
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release
+      - main
+  push:
+    branches:
+      - develop
+
+permissions: {}
+
+jobs:
+  k3s-manifests:
+    name: k3s-manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Check k3s manifests
+        run: .github/scripts/check-k3s-manifests.sh
