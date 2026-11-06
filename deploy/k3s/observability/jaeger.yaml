@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: jaeger
+  namespace: jjdevhub
+  labels:
+    app: jaeger
+spec:
+  replicas: 1
+  serviceName: jaeger
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      securityContext:
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        runAsNonRoot: true
+      containers:
+        - name: jaeger
+          # 1.76.0
+          image: jaegertracing/all-in-one@sha256:968b31672178558da8a0c1bfc86336647d756ee6997ca196698796f5262adef1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SPAN_STORAGE_TYPE
+              value: badger
+            - name: BADGER_EPHEMERAL
+              value: "false"
+            - name: BADGER_DIRECTORY_VALUE
+              value: /badger/data
+            - name: BADGER_DIRECTORY_KEY
+              value: /badger/key
+            - name: BADGER_SPAN_STORE_TTL
+              value: 168h
+            - name: QUERY_BASE_PATH
+              value: /
+          ports:
+            - name: otlp
+              containerPort: 4317
+            - name: ui
+              containerPort: 16686
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /badger
+          startupProbe:
+            httpGet:
+              path: /
+              port: ui
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: ui
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: ui
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  namespace: jjdevhub
+  labels:
+    app: jaeger
+spec:
+  type: ClusterIP
+  selector:
+    app: jaeger
+  ports:
+    - name: otlp
+      port: 4317
+      targetPort: otlp
+    - name: ui
+      port: 16686
+      targetPort: ui
