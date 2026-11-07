@@ -24,7 +24,7 @@ trim() {
 
 password_line_allowed() {
   case "$1" in
-    "- name: POSTGRES_PASSWORD_FILE"|"value: /secrets/postgres/password"|"- key: password"|"path: password"|"secretName: postgres-superuser")
+    "- name: POSTGRES_PASSWORD_FILE"|"value: /secrets/postgres/password"|"- key: password"|"path: password"|"secretName: postgres-superuser"|"- name: GF_SECURITY_ADMIN_PASSWORD"|"key: admin-password")
       return 0
       ;;
     *)
@@ -112,12 +112,18 @@ expected_files=(
   observability/prometheus.yaml
   observability/prometheus/rules.yaml
   observability/jaeger.yaml
+  observability/grafana/grafana.yaml
+  observability/grafana/kustomization.yaml
+  observability/grafana/datasources.yaml
+  observability/grafana/dashboards.yaml
+  observability/grafana/dashboards/jjdevhub-uslugi.json
+  observability/grafana/dashboards/jjdevhub-wersje.json
 )
 
 expected_list=$(printf '%s\n' "${expected_files[@]}" | sort)
 found_list=$(find "$k3s" -type f -printf '%P\n' | sort)
 if [[ $expected_list != "$found_list" ]]; then
-  fail "drzewo deploy/k3s nie jest listą numerów 08, 09, 10, 11 i 12"
+  fail "drzewo deploy/k3s nie jest listą numerów 08, 09, 10, 11, 12 i 13"
   echo "oczekiwane:" >&2
   printf '%s\n' "$expected_list" >&2
   echo "znalezione:" >&2
@@ -384,6 +390,87 @@ if grep -E -q '4318|9411|14268|14250|COLLECTOR_ZIPKIN|emptyDir' "$jaeger"; then
 fi
 if grep -R -E -q '16686|jaeger\.jjdevhub' "${k3s}/apps"; then
   fail "aplikacja zna Jaegera"
+fi
+
+grafana="${k3s}/observability/grafana/grafana.yaml"
+require_line "$grafana" '^kind: Deployment$' "brak Deploymentu"
+require_line "$grafana" '^kind: Service$' "brak Service"
+require_line "$grafana" '^kind: PersistentVolumeClaim$' "brak PVC"
+require_count "$grafana" '^  name: grafana$' 3 "nazwa nie jest grafana"
+require_count "$grafana" '^  replicas: 1$' 1 "Grafana nie ma jednej repliki"
+require_count "$grafana" '^[[:space:]]*replicas:' 1 "więcej niż jedno replicas"
+require_line "$grafana" '^[[:space:]]*image: grafana/grafana@sha256:[0-9a-f]{64}$' "obraz Grafany bez digestu"
+require_line "$grafana" '^  type: ClusterIP$' "Service Grafany nie jest ClusterIP"
+require_line "$grafana" 'port: 3000$' "Service Grafany nie słucha na 3000"
+require_line "$grafana" 'containerPort: 3000$' "kontener nie słucha na 3000"
+require_line "$grafana" 'cpu: 100m$' "brak żądania 100m CPU"
+require_line "$grafana" 'memory: 256Mi$' "brak żądania 256Mi"
+require_line "$grafana" 'storageClassName: local-path$' "PVC Grafany bez local-path"
+require_line "$grafana" 'storage: 10Gi$' "PVC Grafany nie ma 10Gi"
+require_line "$grafana" 'mountPath: /var/lib/grafana$' "katalog danych nie jest /var/lib/grafana"
+require_line "$grafana" 'mountPath: /var/lib/grafana/dashboards$' "JSON nie jest montowany obok katalogu danych"
+require_line "$grafana" 'mountPath: /etc/grafana/provisioning/datasources$' "brak montowania datasource"
+require_line "$grafana" 'mountPath: /etc/grafana/provisioning/dashboards$' "brak montowania providerów"
+require_line "$grafana" 'name: grafana-datasources$' "brak ConfigMapy datasource"
+require_line "$grafana" 'name: grafana-dashboard-provider$' "brak ConfigMapy providerów"
+require_line "$grafana" 'name: grafana-dashboards$' "brak ConfigMapy dashboardów"
+require_line "$grafana" 'name: GF_SECURITY_ADMIN_PASSWORD$' "brak hasła z Secreta"
+require_line "$grafana" 'name: grafana-admin$' "hasło nie pochodzi z Secretu grafana-admin"
+require_line "$grafana" 'key: admin-password$' "klucz Secretu nie nazywa się admin-password"
+require_line "$grafana" 'name: GF_AUTH_ANONYMOUS_ENABLED$' "brak wyłączenia anonimowego dostępu"
+require_line "$grafana" 'value: "false"$' "anonimowy dostęp nie jest wyłączony"
+require_count "$grafana" 'path: /api/health$' 3 "probe nie woła /api/health"
+require_line "$grafana" 'runAsUser: 472$' "proces nie działa jako użytkownik obrazu"
+if grep -E -q 'GF_SERVER_ROOT_URL|stringData|emptyDir|loki|Loki|promtail|Promtail|otlp|OTLP|4317|hostPort|nodePort' "$grafana"; then
+  fail "${grafana}: root URL, sekret, dysk efemeryczny albo obcy sygnał"
+fi
+
+datasources="${k3s}/observability/grafana/datasources.yaml"
+require_line "$datasources" 'uid: prometheus$' "brak uid prometheus"
+require_line "$datasources" 'uid: jaeger$' "brak uid jaeger"
+require_line "$datasources" 'isDefault: true$' "Prometheus nie jest domyślny"
+require_count "$datasources" 'editable: false$' 2 "datasource da się zmienić w UI"
+require_count "$datasources" 'access: proxy$' 2 "datasource nie idzie przez proxy"
+require_line "$datasources" 'url: http://prometheus\.jjdevhub\.svc\.cluster\.local:9090$' "adres Prometheusa"
+require_line "$datasources" 'url: http://jaeger\.jjdevhub\.svc\.cluster\.local:16686$' "adres Jaegera"
+
+providers="${k3s}/observability/grafana/dashboards.yaml"
+require_line "$providers" 'allowUiUpdates: false$' "zapis z UI jest wydaniem"
+require_line "$providers" 'path: /var/lib/grafana/dashboards$' "ścieżka JSON się rozjechała"
+require_line "$providers" 'foldersFromFilesStructure: true$' "katalog dashboardów nie jest z plików"
+require_line "$providers" 'name: jjdevhub$' "provider nie nazywa się jjdevhub"
+
+uslugi="${k3s}/observability/grafana/dashboards/jjdevhub-uslugi.json"
+wersje="${k3s}/observability/grafana/dashboards/jjdevhub-wersje.json"
+require_line "$uslugi" 'jjdevhub:http_server_active_requests:sum' "panel nie woła rekordu żądań w toku"
+require_line "$uslugi" 'http_server_request_duration_seconds_bucket' "panel nie woła histogramu czasu"
+require_line "$uslugi" '"uid": "prometheus"' "panel usług nie ma uid prometheus"
+require_line "$uslugi" '"uid": "jaeger"' "link śladu nie ma uid jaeger"
+require_line "$uslugi" 'trace_id' "link śladu nie używa trace_id"
+require_line "$uslugi" '"repeat": "service_name"' "wiersz usług nie powtarza service_name"
+require_line "$wersje" 'service_version' "panel wersji nie czyta service_version"
+require_line "$wersje" 'count by \(service_name, instance\)' "liczba replik nie liczy instancji"
+require_line "$wersje" '"uid": "prometheus"' "panel wersji nie ma uid prometheus"
+require_line "$wersje" '"repeat": "service_name"' "wiersz wersji nie powtarza service_name"
+for dashboard in "$uslugi" "$wersje"; do
+  if grep -E -q 'mobile|ghcr\.io|ReplicaSet|kube_pod|kube_deployment' "$dashboard"; then
+    fail "${dashboard}: panel zna telefon, obraz albo nazwę poda"
+  fi
+done
+
+kustomization="${k3s}/observability/grafana/kustomization.yaml"
+require_line "$kustomization" '^[[:space:]]*- grafana\.yaml$' "kustomizacja nie bierze grafana.yaml"
+require_line "$kustomization" 'name: grafana-datasources$' "brak generatora datasource"
+require_line "$kustomization" 'name: grafana-dashboard-provider$' "brak generatora providerów"
+require_line "$kustomization" 'name: grafana-dashboards$' "brak generatora dashboardów"
+require_line "$kustomization" 'jjdevhub-uslugi\.json=' "brak klucza dashboardu usług"
+require_line "$kustomization" 'jjdevhub-wersje\.json=' "brak klucza dashboardu wersji"
+if grep -q 'disableNameSuffixHash' "$kustomization"; then
+  fail "${kustomization}: hash ConfigMapy jest wyłączony"
+fi
+
+if grep -R -i -q 'grafana' "${k3s}/apps"; then
+  fail "aplikacja zna Grafanę"
 fi
 if grep -R -q 'kind: HorizontalPodAutoscaler' "${k3s}/observability"; then
   fail "collector ma HPA"
